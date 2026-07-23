@@ -1,0 +1,25 @@
+{
+  "name": "pharmacy-erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pharmacy ERP system",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "start:dev": "nest start --watch",
+    "start": "nest start"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.9.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "prisma": "^7.9.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

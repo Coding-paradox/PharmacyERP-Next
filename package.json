@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "description": "Pharmacy ERP system",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsup",
+    "dev": "pnpm --filter api start:dev",
+    "build": "pnpm --filter api build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "start:dev": "nest start --watch",
-    "start": "nest start"
+    "start:dev": "pnpm --filter api start:dev",
+    "start": "pnpm --filter api start"
   },
   "dependencies": {
     "@prisma/client": "^7.9.0",

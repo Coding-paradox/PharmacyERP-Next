@@ -1,13 +1,33 @@
 {
-  "name": "@pharmacyerp/database",
+  "name": "@packages/database",
   "version": "1.0.0",
   "private": true,
-  "main": "index.ts",
-  "types": "index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./prisma.module": {
+      "types": "./dist/prisma.module.d.ts",
+      "default": "./dist/prisma.module.js"
+    },
+    "./prisma.service": {
+      "types": "./dist/prisma.service.d.ts",
+      "default": "./dist/prisma.service.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
   "dependencies": {
+    "@nestjs/common": "^10.0.0",
     "@prisma/client": "^7.9.0"
   },
   "devDependencies": {
-    "prisma": "^7.9.0"
+    "prisma": "^7.9.0",
+    "typescript": "^5.0.0"
   }
 }

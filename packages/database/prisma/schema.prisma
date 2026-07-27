@@ -1,0 +1,108 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Pharmacy {
+  id        String     @id @default(uuid())
+  name      String
+  address   String?
+  medicines Medicine[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("pharmacies")
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String
+  medicines Medicine[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+model Manufacturer {
+  id        String     @id @default(uuid())
+  name      String
+  medicines Medicine[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("manufacturers")
+}
+
+model Unit {
+  id        String     @id @default(uuid())
+  name      String
+  medicines Medicine[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("units")
+}
+
+model Medicine {
+  id             String        @id @default(uuid())
+  pharmacy_id    String
+  pharmacy       Pharmacy      @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade)
+  code           String
+  barcode        String?
+  name           String
+  genericName    String?
+  dosage         String?
+  dosageForm     String?
+  categoryId     String?
+  category       Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  manufacturerId String?
+  manufacturer   Manufacturer? @relation(fields: [manufacturerId], references: [id], onDelete: SetNull)
+  unitId         String?
+  unit           Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  costPrice      Decimal       @db.Decimal(10, 2)
+  sellingPrice   Decimal       @db.Decimal(10, 2)
+  stock          Int           @default(0)
+  minStock       Int           @default(0)
+  isActive       Boolean       @default(true)
+  deletedAt      DateTime?     
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([pharmacy_id, code])
+  @@unique([pharmacy_id, barcode])
+  @@map("medicines")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  stock       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("products")
+}
+
+enum Role {
+  ADMIN
+  PHARMACIST
+  USER
+}

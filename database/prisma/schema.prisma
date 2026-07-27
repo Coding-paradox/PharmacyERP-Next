@@ -1,753 +1,515 @@
-datasource db {
-  provider = "postgresql"
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// ------------------------------------------------------
-// ENUMS SYSTEME & METIER
-// ------------------------------------------------------
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  SUSPENDED
+datasource db {
+  provider = "postgresql"
 }
-
-enum AuditAction {
-  CREATE
-  UPDATE
-  DELETE
-  LOGIN
-  LOGOUT
-  EXPORT
-}
-
-enum StockMovementType {
-  PURCHASE_RECEIPT
-  SALE_OUTLET
-  ADJUSTMENT_IN
-  ADJUSTMENT_OUT
-  TRANSFER_IN
-  TRANSFER_OUT
-  EXPIRED
-  DAMAGED
-  RETURN_TO_SUPPLIER
-  RETURN_FROM_CUSTOMER
-}
-
-enum PurchaseStatus {
-  DRAFT
-  ORDERED
-  RECEIVED
-  PARTIALLY_RECEIVED
-  CANCELLED
-}
-
-enum SaleStatus {
-  COMPLETED
-  PENDING
-  CANCELLED
-  REFUNDED
-}
-
-enum PaymentMethod {
-  CASH
-  CARD
-  MOBILE_MONEY
-  BANK_TRANSFER
-  CREDIT
-}
-
-enum PaymentStatus {
-  PAID
-  PARTIAL
-  UNPAID
-}
-
-enum RegisterStatus {
-  OPEN
-  CLOSED
-}
-
-// ------------------------------------------------------
-// 1. ORGANISATION & MULTI-TENANCY
-// ------------------------------------------------------
-
-model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  logoUrl   String?  @map("logo_url")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  branches         Branch[]
-  users            User[]
-  roles            Role[]
-  settings         CompanySetting[]
-  auditLogs        AuditLog[]
-  categories       Category[]
-  manufacturers    Manufacturer[]
-  units            Unit[]
-  medicines        Medicine[]
-  warehouses       Warehouse[]
-  batches          Batch[]
-  stocks           Stock[]
-  stockMovements   StockMovement[]
-  suppliers        Supplier[]
-  customers        Customer[]
-  purchaseOrders   PurchaseOrder[]
-  sales            Sale[]
-  registerSessions RegisterSession[]
-  employees        Employee[]
-  positions        Position[]
-  notifications    Notification[]
-  backupLogs       BackupLog[]
-
-  @@map("tenants")
-}
-
-model Branch {
-  id        String    @id @default(uuid())
-  tenantId  String    @map("tenant_id")
-  name      String
-  code      String
-  address   String?
-  phone     String?
-  email     String?
-  isMain    Boolean   @default(false) @map("is_main")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  users            User[]
-  warehouses       Warehouse[]
-  registerSessions RegisterSession[]
-  sales            Sale[]
-  employees        Employee[]
-
-  @@unique([tenantId, code])
-  @@index([tenantId])
-  @@map("branches")
-}
-
-model CompanySetting {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  key         String
-  value       String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, key])
-  @@index([tenantId])
-  @@map("company_settings")
-}
-
-// ------------------------------------------------------
-// 2. SECURITE & UTILISATEURS (RBAC)
-// ------------------------------------------------------
 
 model User {
-  id           String     @id @default(uuid())
-  tenantId     String     @map("tenant_id")
-  branchId     String?    @map("branch_id")
-  email        String     @unique
-  username     String     @unique
-  passwordHash String     @map("password_hash")
-  firstName    String     @map("first_name")
-  lastName     String     @map("last_name")
-  phone        String?
-  status       UserStatus @default(ACTIVE)
-  lastLoginAt  DateTime?  @map("last_login_at")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  deletedAt    DateTime?  @map("deleted_at")
+  id                String          @id @default(uuid()) @db.Uuid
+  pharmacy_id       String          @db.Uuid
+  role_id           String          @db.Uuid
+  firstName         String          @map("first_name") @db.VarChar(100)
+  lastName          String          @map("last_name") @db.VarChar(100)
+  username          String          @unique(map: "users_username_unique") @db.VarChar(100)
+  email             String          @unique(map: "users_email_unique") @db.VarChar(255)
+  phone             String?         @db.VarChar(30)
+  password          String          @db.VarChar(255)
+  photo             String?         @db.VarChar(255)
+  email_verified_at DateTime?       @db.Timestamp(0)
+  lastLoginAt       DateTime?       @map("last_login_at") @db.Timestamp(0)
+  is_active         Boolean         @default(true)
+  remember_token    String?         @db.VarChar(100)
+  createdAt         DateTime?       @map("created_at") @db.Timestamp(0)
+  updatedAt         DateTime?       @updatedAt @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
+  employee          Employee[]
+  purchases         purchases[]
+  sales             Sale[]
+  stockMovements    StockMovement[]
+  pharmacies        pharmacies      @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_pharmacy_id_foreign")
+  roles             Role            @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_role_id_foreign")
 
-  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch           Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  userRoles        UserRole[]
-  sessions         Session[]
-  refreshTokens    RefreshToken[]
-  auditLogs        AuditLog[]
-  stockMovements   StockMovement[]
-  registerSessions RegisterSession[]
-  sales            Sale[]
-  purchaseOrders   PurchaseOrder[]
-  employee         Employee?
-  notifications    Notification[]
-
-  @@index([tenantId])
-  @@index([branchId])
   @@map("users")
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  name        String
-  description String?
-  isSystem    Boolean  @default(false) @map("is_system")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles       UserRole[]
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @unique(map: "roles_name_unique") @db.VarChar(100)
+  display_name    String           @db.VarChar(150)
+  description     String?
+  is_active       Boolean          @default(true)
+  createdAt       DateTime?        @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime?        @updatedAt @map("updated_at")
+  deleted_at      DateTime?        @db.Timestamp(0)
   rolePermissions RolePermission[]
+  users           User[]
 
-  @@unique([tenantId, name])
-  @@index([tenantId])
   @@map("roles")
 }
 
 model Permission {
-  id          String   @id @default(uuid())
-  module      String
-  action      String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @unique(map: "permissions_name_unique") @db.VarChar(100)
+  display_name    String           @db.VarChar(150)
+  description     String?
+  is_active       Boolean          @default(true)
+  createdAt       DateTime?        @map("created_at") @db.Timestamp(0)
+  updated_at      DateTime?        @db.Timestamp(0)
+  deleted_at      DateTime?        @db.Timestamp(0)
   rolePermissions RolePermission[]
 
-  @@unique([module, action])
   @@map("permissions")
 }
 
-model UserRole {
-  userId String @map("user_id")
-  roleId String @map("role_id")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@id([userId, roleId])
-  @@map("user_roles")
-}
-
 model RolePermission {
-  roleId       String @map("role_id")
-  permissionId String @map("permission_id")
+  id           String     @id @default(uuid()) @db.Uuid
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  created_at   DateTime?  @db.Timestamp(0)
+  updated_at   DateTime?  @db.Timestamp(0)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_permissions_permission_id_foreign")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_permissions_role_id_foreign")
 
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  @@id([roleId, permissionId])
+  @@unique([roleId, permissionId], map: "role_permissions_role_id_permission_id_unique")
   @@map("role_permissions")
 }
 
-model Session {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  ipAddress String?  @map("ip_address")
-  userAgent String?  @map("user_agent")
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("sessions")
-}
-
-model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  token     String   @unique
-  isRevoked Boolean  @default(false) @map("is_revoked")
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("refresh_tokens")
-}
-
-model AuditLog {
-  id         String      @id @default(uuid())
-  tenantId   String      @map("tenant_id")
-  userId     String?     @map("user_id")
-  action     AuditAction
-  entityName String      @map("entity_name")
-  entityId   String?     @map("entity_id")
-  oldValues  Json?       @map("old_values")
-  newValues  Json?       @map("new_values")
-  ipAddress  String?     @map("ip_address")
-  createdAt  DateTime    @default(now()) @map("created_at")
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId])
-  @@index([userId])
-  @@index([entityName, entityId])
-  @@map("audit_logs")
-}
-
-// ------------------------------------------------------
-// 3. RESSOURCES HUMAINES (RH)
-// ------------------------------------------------------
-
-model Position {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  title       String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employees Employee[]
-
-  @@unique([tenantId, title])
-  @@index([tenantId])
-  @@map("positions")
-}
-
 model Employee {
-  id         String    @id @default(uuid())
-  tenantId   String    @map("tenant_id")
-  branchId   String?   @map("branch_id")
-  userId     String?   @unique @map("user_id")
-  positionId String?   @map("position_id")
-  code       String
-  firstName  String    @map("first_name")
-  lastName   String    @map("last_name")
-  email      String?
-  phone      String?
-  hireDate   DateTime? @map("hire_date")
-  isActive   Boolean   @default(true) @map("is_active")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
+  id              String     @id @default(uuid()) @db.Uuid
+  pharmacy_id     String     @db.Uuid
+  userId          String?    @map("user_id") @db.Uuid
+  employee_number String     @unique(map: "employees_employee_number_unique") @db.VarChar(30)
+  firstName       String     @map("first_name") @db.VarChar(100)
+  lastName        String     @map("last_name") @db.VarChar(100)
+  gender          String     @db.VarChar(255)
+  birth_date      DateTime?  @db.Date
+  phone           String?    @db.VarChar(30)
+  email           String?    @db.VarChar(255)
+  address         String?    @db.VarChar(255)
+  position        String     @db.VarChar(100)
+  hireDate        DateTime   @map("hire_date") @db.Date
+  salary          Decimal?   @db.Decimal(12, 2)
+  isActive        Boolean    @default(true) @map("is_active")
+  createdAt       DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime?  @updatedAt @map("updated_at")
+  deletedAt       DateTime?  @map("deleted_at")
+  pharmacies      pharmacies @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "employees_pharmacy_id_foreign")
+  user            User?      @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "employees_user_id_foreign")
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch   Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  position Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
-
-  @@unique([tenantId, code])
-  @@index([tenantId])
   @@map("employees")
 }
 
-// ------------------------------------------------------
-// 4. CATALOGUE PHARMACEUTIQUE
-// ------------------------------------------------------
-
 model Category {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  name        String
+  id          String     @id @default(uuid()) @db.Uuid
+  pharmacy_id String     @db.Uuid
+  name        String     @unique(map: "categories_name_unique") @db.VarChar(100)
   description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  is_active   Boolean    @default(true)
+  createdAt   DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime?  @updatedAt @map("updated_at")
+  deleted_at  DateTime?  @db.Timestamp(0)
+  pharmacies  pharmacies @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "categories_pharmacy_id_foreign")
+  medicines   Medicine[]
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  medicines Medicine[]
-
-  @@unique([tenantId, name])
-  @@index([tenantId])
   @@map("categories")
 }
 
 model Manufacturer {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  name      String
-  country   String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String     @unique(map: "manufacturers_name_unique") @db.VarChar(150)
+  country    String?    @db.VarChar(100)
+  city       String?    @db.VarChar(100)
+  phone      String?    @db.VarChar(30)
+  email      String?    @db.VarChar(255)
+  website    String?    @db.VarChar(255)
+  address    String?
+  is_active  Boolean    @default(true)
+  createdAt  DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt  DateTime?  @updatedAt @map("updated_at")
+  deleted_at DateTime?  @db.Timestamp(0)
+  medicines  Medicine[]
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  medicines Medicine[]
-
-  @@unique([tenantId, name])
-  @@index([tenantId])
   @@map("manufacturers")
 }
 
-model Unit {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  name      String
-  symbol    String
-  createdAt DateTime @default(now()) @map("created_at")
-
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  medicines Medicine[]
-
-  @@unique([tenantId, name])
-  @@index([tenantId])
-  @@map("units")
-}
-
 model Medicine {
-  id                   String    @id @default(uuid())
-  tenantId             String    @map("tenant_id")
-  categoryId           String?   @map("category_id")
-  manufacturerId       String?   @map("manufacturer_id")
-  unitId               String?   @map("unit_id")
-  code                 String
-  barcode              String?
-  name                 String
-  genericName          String?   @map("generic_name")
-  dosage               String?
-  dosageForm           String?   @map("dosage_form")
-  description          String?
-  requiresPrescription Boolean   @default(false) @map("requires_prescription")
-  minStockLevel        Int       @default(10) @map("min_stock_level")
-  costPrice            Decimal   @default(0) @map("cost_price") @db.Decimal(12, 2)
-  sellingPrice         Decimal   @default(0) @map("selling_price") @db.Decimal(12, 2)
-  vatRate              Decimal   @default(0) @map("vat_rate") @db.Decimal(5, 2)
-  isActive             Boolean   @default(true) @map("is_active")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
-  deletedAt            DateTime? @map("deleted_at")
+  id                  String                @id @default(uuid()) @db.Uuid
+  pharmacy_id         String                @db.Uuid
+  categoryId          String                @map("category_id") @db.Uuid
+  manufacturerId      String?               @map("manufacturer_id") @db.Uuid
+  code                String                @unique(map: "medicines_code_unique") @db.VarChar(50)
+  barcode             String?               @unique(map: "medicines_barcode_unique") @db.VarChar(255)
+  name                String                @db.VarChar(200)
+  genericName         String?               @map("generic_name") @db.VarChar(200)
+  dosage              String?               @db.VarChar(100)
+  country             String?               @db.VarChar(100)
+  description         String?
+  requiresPrescription Boolean               @default(false) @map("requires_prescription")
+  isActive            Boolean               @default(true) @map("is_active")
+  createdAt           DateTime?             @map("created_at") @db.Timestamp(0)
+  updatedAt           DateTime?             @updatedAt @map("updated_at")
+  deletedAt           DateTime?             @map("deleted_at")
+  medicine_batches    medicine_batches[]
+  medicine_packagings medicine_packagings[]
+  medicine_prices     medicine_prices[]
+  category            Category              @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicines_category_id_foreign")
+  manufacturer        Manufacturer?         @relation(fields: [manufacturerId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "medicines_manufacturer_id_foreign")
+  pharmacies          pharmacies            @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicines_pharmacy_id_foreign")
+  purchase_items      purchase_items[]
+  saleItems           SaleItem[]
 
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  manufacturer       Manufacturer?       @relation(fields: [manufacturerId], references: [id], onDelete: SetNull)
-  unit               Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  batches            Batch[]
-  stocks             Stock[]
-  movements          StockMovement[]
-  purchaseOrderItems PurchaseOrderItem[]
-  saleItems          SaleItem[]
-
-  @@unique([tenantId, code])
-  @@index([tenantId])
-  @@index([barcode])
-  @@index([categoryId])
   @@map("medicines")
 }
 
-// ------------------------------------------------------
-// 5. STOCKS, ENTREPÔTS ET LOTS
-// ------------------------------------------------------
-
-model Warehouse {
-  id        String    @id @default(uuid())
-  tenantId  String    @map("tenant_id")
-  branchId  String    @map("branch_id")
-  name      String
-  location  String?
-  isMain    Boolean   @default(false) @map("is_main")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch    Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  stocks    Stock[]
-  movements StockMovement[]
-
-  @@index([tenantId])
-  @@index([branchId])
-  @@map("warehouses")
-}
-
-model Batch {
-  id              String    @id @default(uuid())
-  tenantId        String    @map("tenant_id")
-  medicineId      String    @map("medicine_id")
-  batchNumber     String    @map("batch_number")
-  manufactureDate DateTime? @map("manufacture_date")
-  expiryDate      DateTime  @map("expiry_date")
-  costPrice       Decimal?  @map("cost_price") @db.Decimal(12, 2)
-  createdAt       DateTime  @default(now()) @map("created_at")
-
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  medicine           Medicine            @relation(fields: [medicineId], references: [id], onDelete: Cascade)
-  stocks             Stock[]
-  movements          StockMovement[]
-  purchaseOrderItems PurchaseOrderItem[]
-  saleItems          SaleItem[]
-
-  @@unique([tenantId, medicineId, batchNumber])
-  @@index([tenantId])
-  @@index([medicineId])
-  @@index([expiryDate])
-  @@map("batches")
-}
-
 model Stock {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  warehouseId String   @map("warehouse_id")
-  medicineId  String   @map("medicine_id")
-  batchId     String?  @map("batch_id")
-  quantity    Int      @default(0)
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                  String              @id @default(uuid()) @db.Uuid
+  pharmacy_id         String              @db.Uuid
+  batchId             String              @map("batch_id") @db.Uuid
+  packaging_id        String              @db.Uuid
+  quantity            Int                 @default(0)
+  minimum_quantity    Int                 @default(0)
+  maximum_quantity    Int?
+  location            String?             @db.VarChar(100)
+  is_active           Boolean             @default(true)
+  created_at          DateTime?           @db.Timestamp(0)
+  updatedAt           DateTime?           @updatedAt @map("updated_at")
+  deleted_at          DateTime?           @db.Timestamp(0)
+  stock_movements     StockMovement[]
+  batch               medicine_batches    @relation(fields: [batchId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stocks_batch_id_foreign")
+  medicine_packagings medicine_packagings @relation(fields: [packaging_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stocks_packaging_id_foreign")
+  pharmacies          pharmacies          @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stocks_pharmacy_id_foreign")
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  medicine  Medicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
-  batch     Batch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
-
-  @@unique([warehouseId, medicineId, batchId])
-  @@index([tenantId])
-  @@index([warehouseId])
-  @@index([medicineId])
   @@map("stocks")
 }
 
 model StockMovement {
-  id          String            @id @default(uuid())
-  tenantId    String            @map("tenant_id")
-  warehouseId String            @map("warehouse_id")
-  medicineId  String            @map("medicine_id")
-  batchId     String?           @map("batch_id")
-  userId      String?           @map("user_id")
-  type        StockMovementType
-  quantity    Int
-  reference   String?
-  reason      String?
-  createdAt   DateTime          @default(now()) @map("created_at")
+  id              String     @id @default(uuid()) @db.Uuid
+  pharmacy_id     String     @db.Uuid
+  stock_id        String     @db.Uuid
+  userId          String     @map("user_id") @db.Uuid
+  movement_type   String     @db.VarChar(255)
+  quantity        Int
+  quantity_before Int
+  quantity_after  Int
+  reference       String?    @db.VarChar(100)
+  remarks         String?
+  createdAt       DateTime?  @map("created_at") @db.Timestamp(0)
+  updated_at      DateTime?  @db.Timestamp(0)
+  pharmacies      pharmacies @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stock_movements_pharmacy_id_foreign")
+  stocks          Stock      @relation(fields: [stock_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stock_movements_stock_id_foreign")
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stock_movements_user_id_foreign")
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  medicine  Medicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
-  batch     Batch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId])
-  @@index([warehouseId])
-  @@index([medicineId])
-  @@index([type])
   @@map("stock_movements")
 }
 
-// ------------------------------------------------------
-// 6. FOURNISSEURS & ACHATS
-// ------------------------------------------------------
-
 model Supplier {
-  id        String    @id @default(uuid())
-  tenantId  String    @map("tenant_id")
-  name      String
-  code      String
-  contact   String?
-  email     String?
-  phone     String?
-  address   String?
-  taxNumber String?   @map("tax_number")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  id              String      @id @default(uuid()) @db.Uuid
+  code            String      @unique(map: "suppliers_code_unique") @db.VarChar(30)
+  company_name    String      @db.VarChar(200)
+  contact_person  String?     @db.VarChar(150)
+  phone           String      @db.VarChar(30)
+  alternate_phone String?     @db.VarChar(30)
+  email           String?     @db.VarChar(255)
+  website         String?     @db.VarChar(255)
+  city            String?     @db.VarChar(100)
+  country         String?     @db.VarChar(100)
+  address         String?
+  notes           String?
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime?   @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime?   @updatedAt @map("updated_at")
+  deletedAt       DateTime?   @map("deleted_at")
+  purchases       purchases[]
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  purchaseOrders PurchaseOrder[]
-
-  @@unique([tenantId, code])
-  @@index([tenantId])
   @@map("suppliers")
 }
 
-model PurchaseOrder {
-  id           String         @id @default(uuid())
-  tenantId     String         @map("tenant_id")
-  supplierId   String         @map("supplier_id")
-  createdById  String         @map("created_by_id")
-  orderNumber  String         @map("order_number")
-  status       PurchaseStatus @default(DRAFT)
-  totalAmount  Decimal        @default(0) @map("total_amount") @db.Decimal(12, 2)
-  notes        String?
-  orderDate    DateTime       @default(now()) @map("order_date")
-  expectedDate DateTime?      @map("expected_date")
-  receivedDate DateTime?      @map("received_date")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-
-  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier  Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  createdBy User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  items     PurchaseOrderItem[]
-
-  @@unique([tenantId, orderNumber])
-  @@index([tenantId])
-  @@index([supplierId])
-  @@map("purchase_orders")
-}
-
-model PurchaseOrderItem {
-  id               String   @id @default(uuid())
-  purchaseOrderId  String   @map("purchase_order_id")
-  medicineId       String   @map("medicine_id")
-  batchId          String?  @map("batch_id")
-  quantityOrdered  Int      @map("quantity_ordered")
-  quantityReceived Int      @default(0) @map("quantity_received")
-  unitCost         Decimal  @map("unit_cost") @db.Decimal(12, 2)
-  subtotal         Decimal  @db.Decimal(12, 2)
-  createdAt        DateTime @default(now()) @map("created_at")
-
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  medicine      Medicine      @relation(fields: [medicineId], references: [id], onDelete: Restrict)
-  batch         Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
-
-  @@index([purchaseOrderId])
-  @@index([medicineId])
-  @@map("purchase_order_items")
-}
-
-// ------------------------------------------------------
-// 7. CLIENTS, CAISSES (POS) & VENTES
-// ------------------------------------------------------
-
 model Customer {
-  id          String    @id @default(uuid())
-  tenantId    String    @map("tenant_id")
-  name        String
-  phone       String?
-  email       String?
+  id          String     @id @default(uuid()) @db.Uuid
+  pharmacy_id String     @db.Uuid
+  code        String     @unique(map: "customers_code_unique") @db.VarChar(30)
+  full_name   String     @db.VarChar(200)
+  gender      String?    @db.VarChar(255)
+  birth_date  DateTime?  @db.Date
+  phone       String?    @db.VarChar(30)
+  email       String?    @db.VarChar(255)
   address     String?
-  loyaltyCard String?   @map("loyalty_card")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  city        String?    @db.VarChar(100)
+  blood_group String?    @db.VarChar(5)
+  allergies   String?
+  notes       String?
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime?  @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at")
+  pharmacies  pharmacies @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "customers_pharmacy_id_foreign")
+  sales       Sale[]
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sales  Sale[]
-
-  @@index([tenantId])
   @@map("customers")
 }
 
-model RegisterSession {
-  id             String         @id @default(uuid())
-  tenantId       String         @map("tenant_id")
-  branchId       String         @map("branch_id")
-  userId         String         @map("user_id")
-  openingBalance Decimal        @map("opening_balance") @db.Decimal(12, 2)
-  closingBalance Decimal?       @map("closing_balance") @db.Decimal(12, 2)
-  status         RegisterStatus @default(OPEN)
-  openedAt       DateTime       @default(now()) @map("opened_at")
-  closedAt       DateTime?      @map("closed_at")
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
-  sales  Sale[]
-
-  @@index([tenantId])
-  @@index([branchId])
-  @@index([userId])
-  @@map("register_sessions")
-}
-
 model Sale {
-  id                String        @id @default(uuid())
-  tenantId          String        @map("tenant_id")
-  branchId          String        @map("branch_id")
-  userId            String        @map("user_id")
-  customerId        String?       @map("customer_id")
-  registerSessionId String?       @map("register_session_id")
-  invoiceNumber     String        @map("invoice_number")
-  status            SaleStatus    @default(COMPLETED)
-  paymentStatus     PaymentStatus @default(PAID) @map("payment_status")
+  id            String     @id @default(uuid()) @db.Uuid
+  pharmacy_id   String     @db.Uuid
+  userId        String     @map("user_id") @db.Uuid
+  customerId    String?    @map("customer_id") @db.Uuid
+  invoiceNumber String     @unique(map: "sales_invoice_number_unique") @map("invoice_number") @db.VarChar(100)
+  sale_date     DateTime   @db.Timestamp(0)
+  subtotal      Decimal    @default(0) @db.Decimal(14, 2)
+  discount      Decimal    @default(0) @db.Decimal(14, 2)
+  tax           Decimal    @default(0) @db.Decimal(14, 2)
+  totalAmount   Decimal    @map("total_amount") @db.Decimal(14, 2)
+  paid_amount   Decimal    @default(0) @db.Decimal(14, 2)
+  change_amount Decimal    @default(0) @db.Decimal(14, 2)
+  status        String     @default("PAID") @db.VarChar(255)
+  notes         String?
+  createdAt     DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime?  @updatedAt @map("updated_at")
+  deleted_at    DateTime?  @db.Timestamp(0)
+  items         SaleItem[]
+  customer      Customer?  @relation(fields: [customerId], references: [id], onUpdate: NoAction, map: "sales_customer_id_foreign")
+  pharmacies    pharmacies @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sales_pharmacy_id_foreign")
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sales_user_id_foreign")
 
-  subtotal       Decimal @db.Decimal(12, 2)
-  taxAmount      Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
-  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(12, 2)
-  totalAmount    Decimal @map("total_amount") @db.Decimal(12, 2)
-
-  prescriptionRef String?  @map("prescription_ref")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  registerSession RegisterSession? @relation(fields: [registerSessionId], references: [id], onDelete: SetNull)
-  items           SaleItem[]
-  payments        Payment[]
-
-  @@unique([tenantId, invoiceNumber])
-  @@index([tenantId])
-  @@index([branchId])
-  @@index([userId])
-  @@index([customerId])
   @@map("sales")
 }
 
 model SaleItem {
-  id         String   @id @default(uuid())
-  saleId     String   @map("sale_id")
-  medicineId String   @map("medicine_id")
-  batchId    String?  @map("batch_id")
-  quantity   Int
-  unitPrice  Decimal  @map("unit_price") @db.Decimal(12, 2)
-  taxRate    Decimal  @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  subtotal   Decimal  @db.Decimal(12, 2)
-  createdAt  DateTime @default(now()) @map("created_at")
+  id                  String              @id @default(uuid()) @db.Uuid
+  saleId              String              @map("sale_id") @db.Uuid
+  medicineId          String              @map("medicine_id") @db.Uuid
+  batchId             String              @map("batch_id") @db.Uuid
+  packaging_id        String              @db.Uuid
+  quantity            Int
+  base_quantity       Int
+  unitPrice           Decimal             @map("unit_price") @db.Decimal(14, 2)
+  unit_cost           Decimal             @db.Decimal(14, 2)
+  discount            Decimal             @default(0) @db.Decimal(14, 2)
+  line_total          Decimal             @db.Decimal(14, 2)
+  line_profit         Decimal             @db.Decimal(14, 2)
+  createdAt           DateTime?           @map("created_at") @db.Timestamp(0)
+  updated_at          DateTime?           @db.Timestamp(0)
+  deleted_at          DateTime?           @db.Timestamp(0)
+  batch               medicine_batches    @relation(fields: [batchId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sale_items_batch_id_foreign")
+  medicine            Medicine            @relation(fields: [medicineId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sale_items_medicine_id_foreign")
+  medicine_packagings medicine_packagings @relation(fields: [packaging_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sale_items_packaging_id_foreign")
+  sale                Sale                @relation(fields: [saleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sale_items_sale_id_foreign")
 
-  sale     Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  medicine Medicine @relation(fields: [medicineId], references: [id], onDelete: Restrict)
-  batch    Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
-
-  @@index([saleId])
-  @@index([medicineId])
   @@map("sale_items")
 }
 
-model Payment {
-  id             String        @id @default(uuid())
-  saleId         String        @map("sale_id")
-  method         PaymentMethod
-  amount         Decimal       @db.Decimal(12, 2)
-  transactionRef String?       @map("transaction_ref")
-  createdAt      DateTime      @default(now()) @map("created_at")
-
-  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
-
-  @@index([saleId])
-  @@map("payments")
+model cache {
+  key        String @id @db.VarChar(255)
+  value      String
+  expiration Int
 }
 
-// ------------------------------------------------------
-// 8. NOTIFICATIONS & SYSTEME
-// ------------------------------------------------------
-
-model Notification {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  userId    String?  @map("user_id")
-  title     String
-  message   String
-  isRead    Boolean  @default(false) @map("is_read")
-  type      String   @default("INFO") // INFO, WARNING, ALERT
-  createdAt DateTime @default(now()) @map("created_at")
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId])
-  @@index([userId])
-  @@map("notifications")
+model cache_locks {
+  key        String @id @db.VarChar(255)
+  owner      String @db.VarChar(255)
+  expiration Int
 }
 
-model BackupLog {
-  id        String   @id @default(uuid())
-  tenantId  String?  @map("tenant_id")
-  fileName  String   @map("file_name")
-  fileSize  BigInt   @map("file_size")
-  status    String   // SUCCESS, FAILED
-  createdAt DateTime @default(now()) @map("created_at")
+model failed_jobs {
+  id         BigInt   @id @default(autoincrement())
+  uuid       String   @unique(map: "failed_jobs_uuid_unique") @db.VarChar(255)
+  connection String   @db.VarChar(255)
+  queue      String   @db.VarChar(255)
+  payload    String
+  exception  String
+  failed_at  DateTime @default(now()) @db.Timestamp(0)
 
-  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  @@index([connection, queue, failed_at], map: "failed_jobs_connection_queue_failed_at_index")
+}
 
-  @@index([tenantId])
-  @@map("backup_logs")
+model job_batches {
+  id             String  @id @db.VarChar(255)
+  name           String  @db.VarChar(255)
+  total_jobs     Int
+  pending_jobs   Int
+  failed_jobs    Int
+  failed_job_ids String
+  options        String?
+  cancelled_at   Int?
+  created_at     Int
+  finished_at    Int?
+}
+
+model jobs {
+  id           BigInt @id @default(autoincrement())
+  queue        String @db.VarChar(255)
+  payload      String
+  attempts     Int    @db.SmallInt
+  reserved_at  Int?
+  available_at Int
+  created_at   Int
+
+  @@index([queue], map: "jobs_queue_index")
+}
+
+model medicine_batches {
+  id                 String           @id @default(uuid()) @db.Uuid
+  medicine_id        String           @db.Uuid
+  batch_number       String           @unique(map: "medicine_batches_batch_number_unique") @db.VarChar(100)
+  manufacturing_date DateTime?        @db.Date
+  expiration_date    DateTime         @db.Date
+  initial_quantity   Int
+  remaining_quantity Int
+  purchase_price     Decimal          @db.Decimal(12, 2)
+  selling_price      Decimal          @db.Decimal(12, 2)
+  is_active          Boolean          @default(true)
+  created_at         DateTime?        @db.Timestamp(0)
+  updated_at         DateTime?        @db.Timestamp(0)
+  deleted_at         DateTime?        @db.Timestamp(0)
+  medicines          Medicine         @relation(fields: [medicine_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicine_batches_medicine_id_foreign")
+  purchase_items     purchase_items[]
+  saleItems          SaleItem[]
+  stocks             Stock[]
+}
+
+model medicine_forms {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique(map: "medicine_forms_name_unique") @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  is_active   Boolean   @default(true)
+  created_at  DateTime? @db.Timestamp(0)
+  updated_at  DateTime? @db.Timestamp(0)
+  deleted_at  DateTime? @db.Timestamp(0)
+}
+
+model medicine_packagings {
+  id              String            @id @default(uuid()) @db.Uuid
+  medicine_id     String            @db.Uuid
+  unit_id         String            @db.Uuid
+  name            String            @db.VarChar(100)
+  quantity        Int
+  purchase_price  Decimal           @default(0) @db.Decimal(12, 2)
+  selling_price   Decimal           @default(0) @db.Decimal(12, 2)
+  is_default      Boolean           @default(false)
+  is_active       Boolean           @default(true)
+  created_at      DateTime?         @db.Timestamp(0)
+  updated_at      DateTime?         @db.Timestamp(0)
+  deleted_at      DateTime?         @db.Timestamp(0)
+  medicines       Medicine          @relation(fields: [medicine_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicine_packagings_medicine_id_foreign")
+  medicine_units  medicine_units    @relation(fields: [unit_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicine_packagings_unit_id_foreign")
+  medicine_prices medicine_prices[]
+  purchase_items  purchase_items[]
+  sale_items      SaleItem[]
+  stocks          Stock[]
+}
+
+model medicine_prices {
+  id                  String              @id @default(uuid()) @db.Uuid
+  medicine_id         String              @db.Uuid
+  packaging_id        String              @db.Uuid
+  type                String              @default("VENTE") @db.VarChar(255)
+  price               Decimal             @db.Decimal(14, 2)
+  discount_percentage Decimal             @default(0) @db.Decimal(5, 2)
+  is_active           Boolean             @default(true)
+  created_at          DateTime?           @db.Timestamp(0)
+  updated_at          DateTime?           @db.Timestamp(0)
+  deleted_at          DateTime?           @db.Timestamp(0)
+  medicines           Medicine            @relation(fields: [medicine_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicine_prices_medicine_id_foreign")
+  medicine_packagings medicine_packagings @relation(fields: [packaging_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicine_prices_packaging_id_foreign")
+
+  @@unique([medicine_id, packaging_id, type], map: "medicine_prices_medicine_id_packaging_id_type_unique")
+}
+
+model medicine_units {
+  id                  String                @id @default(uuid()) @db.Uuid
+  name                String                @unique(map: "medicine_units_name_unique") @db.VarChar(100)
+  symbol              String?               @db.VarChar(20)
+  description         String?
+  is_active           Boolean               @default(true)
+  created_at          DateTime?             @db.Timestamp(0)
+  updated_at          DateTime?             @db.Timestamp(0)
+  deleted_at          DateTime?             @db.Timestamp(0)
+  medicine_packagings medicine_packagings[]
+}
+
+model migrations {
+  id        Int    @id @default(autoincrement())
+  migration String @db.VarChar(255)
+  batch     Int
+}
+
+model pharmacies {
+  id              String          @id @default(uuid()) @db.Uuid
+  code            String          @unique(map: "pharmacies_code_unique") @db.VarChar(20)
+  name            String          @db.VarChar(150)
+  owner_name      String?         @db.VarChar(150)
+  email           String?         @db.VarChar(255)
+  phone           String?         @db.VarChar(30)
+  alternate_phone String?         @db.VarChar(30)
+  city            String          @db.VarChar(100)
+  commune         String?         @db.VarChar(100)
+  quartier        String?         @db.VarChar(100)
+  avenue          String?         @db.VarChar(150)
+  number          String?         @db.VarChar(20)
+  address         String?
+  logo            String?         @db.VarChar(255)
+  is_active       Boolean         @default(true)
+  created_at      DateTime?       @db.Timestamp(0)
+  updated_at      DateTime?       @db.Timestamp(0)
+  deleted_at      DateTime?       @db.Timestamp(0)
+  categories      Category[]
+  customers       Customer[]
+  employees       Employee[]
+  medicines       Medicine[]
+  purchases       purchases[]
+  sales           Sale[]
+  stock_movements StockMovement[]
+  stocks          Stock[]
+  users           User[]
+}
+
+model products {
+  id         BigInt    @id @default(autoincrement())
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+}
+
+model purchase_items {
+  id                  String              @id @default(uuid()) @db.Uuid
+  purchase_id         String              @db.Uuid
+  medicine_id         String              @db.Uuid
+  batch_id            String              @db.Uuid
+  packaging_id        String              @db.Uuid
+  quantity            Int
+  unit_price          Decimal             @db.Decimal(14, 2)
+  discount            Decimal             @default(0) @db.Decimal(14, 2)
+  line_total          Decimal             @db.Decimal(14, 2)
+  created_at          DateTime?           @db.Timestamp(0)
+  updated_at          DateTime?           @db.Timestamp(0)
+  deleted_at          DateTime?           @db.Timestamp(0)
+  medicine_batches    medicine_batches    @relation(fields: [batch_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_items_batch_id_foreign")
+  medicines           Medicine            @relation(fields: [medicine_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_items_medicine_id_foreign")
+  medicine_packagings medicine_packagings @relation(fields: [packaging_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_items_packaging_id_foreign")
+  purchases           purchases           @relation(fields: [purchase_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_items_purchase_id_foreign")
+}
+
+model purchases {
+  id               String           @id @default(uuid()) @db.Uuid
+  pharmacy_id      String           @db.Uuid
+  supplier_id      String           @db.Uuid
+  user_id          String           @db.Uuid
+  invoice_number   String           @unique(map: "purchases_invoice_number_unique") @db.VarChar(100)
+  purchase_date    DateTime         @db.Date
+  subtotal         Decimal          @default(0) @db.Decimal(14, 2)
+  discount         Decimal          @default(0) @db.Decimal(14, 2)
+  tax              Decimal          @default(0) @db.Decimal(14, 2)
+  total_amount     Decimal          @default(0) @db.Decimal(14, 2)
+  paid_amount      Decimal          @default(0) @db.Decimal(14, 2)
+  remaining_amount Decimal          @default(0) @db.Decimal(14, 2)
+  status           String           @default("PENDING") @db.VarChar(255)
+  notes            String?
+  created_at       DateTime?        @db.Timestamp(0)
+  updated_at       DateTime?        @db.Timestamp(0)
+  deleted_at       DateTime?        @db.Timestamp(0)
+  purchase_items   purchase_items[]
+  pharmacies       pharmacies       @relation(fields: [pharmacy_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchases_pharmacy_id_foreign")
+  suppliers        Supplier         @relation(fields: [supplier_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchases_supplier_id_foreign")
+  users            User             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchases_user_id_foreign")
 }

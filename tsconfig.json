@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "target": "ES2022",
     "lib": ["ES2022"],
-    "strict": false,
+    "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
@@ -17,10 +17,13 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@packages/database": ["packages/database/src"],
-      "@packages/database/*": ["packages/database/src/*"],
-      "@packages/shared": ["packages/shared/src"],
-      "@packages/shared/*": ["packages/shared/src/*"]
+      "@pharmacy/database": ["packages/database/src"],
+      "@pharmacy/database/*": ["packages/database/src/*"],
+      "@pharmacy/shared": ["packages/shared/src"],
+      "@pharmacy/shared/*": ["packages/shared/src/*"],
+      "@pharmacy/types": ["packages/types/src"],
+      "@pharmacy/types/*": ["packages/types/src/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", "dist", ".turbo", "coverage"]
 }

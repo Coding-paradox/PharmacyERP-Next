@@ -1,0 +1,69 @@
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# Copy root config files
+COPY pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
+COPY package.json ./
+COPY turbo.json ./
+COPY tsconfig.json ./
+COPY tsconfig.base.json ./
+
+# Copy packages
+COPY packages/database ./packages/database
+COPY packages/shared ./packages/shared
+COPY packages/types ./packages/types
+
+# Copy apps
+COPY apps/api ./apps/api
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build shared packages
+RUN pnpm --filter @pharmacy/database build
+RUN pnpm --filter @pharmacy/shared build
+
+# Build API
+RUN pnpm --filter @pharmacy/api build
+
+# Production stage
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# Copy built API
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+
+# Copy built packages
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/database/package.json ./packages/database/package.json
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+
+# Copy root package.json and workspace config
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+
+# Install production dependencies
+RUN pnpm install --frozen-lockfile --prod
+
+# Expose port
+EXPOSE 3001
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3001
+
+# Run the app
+CMD ["node", "apps/api/dist/main"]

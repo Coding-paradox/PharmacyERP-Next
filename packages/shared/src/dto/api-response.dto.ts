@@ -1,6 +1,15 @@
-export class ApiResponseDto<T> {
+export interface ApiResponseDto<T = any> {
   success: boolean;
   message: string;
   data?: T;
   error?: any;
+  statusCode?: number;
+  meta?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  timestamp?: string;
+  requestId?: string;
 }

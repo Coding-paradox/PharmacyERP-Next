@@ -1,52 +1,104 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '@pharmacy/database';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
-import { QueryParamsDto, SortOrder } from '../common/dto/query-params.dto';
-import { PaginatedResponseDto } from '../common/dto/paginated-response.dto';
+import { QueryParamsDto } from '@pharmacy/shared/dto/pagination.dto';
+import { PaginatedResponseDto } from '@pharmacy/shared/dto/pagination.dto';
+import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class MedicineService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(MedicineService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   private generateStructuredCode(): string {
-    const randomSuffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const randomSuffix = crypto.randomBytes(4).toString('hex').toUpperCase();
     return `MED-${randomSuffix}`;
   }
 
-  private validatePriceRule(costPrice?: number, sellingPrice?: number) {
+  private validatePriceRule(costPrice?: number, sellingPrice?: number): void {
     if (costPrice !== undefined && sellingPrice !== undefined) {
       if (sellingPrice < costPrice) {
-        throw new BadRequestException("Le prix de vente (sellingPrice) ne peut pas être inférieur au prix d'achat (costPrice).");
+        throw new BadRequestException(
+          'Selling price cannot be less than cost price',
+        );
       }
     }
   }
 
-  async create(createMedicineDto: CreateMedicineDto, pharmacy_id: string = 'default'): Promise<any> {
-    this.validatePriceRule(createMedicineDto.costPrice, createMedicineDto.sellingPrice);
+  private async generateUniqueCode(pharmacyId: string): Promise<string> {
+    let code: string;
+    let exists: boolean;
+    let attempts = 0;
+    const maxAttempts = 10;
 
-    let code = createMedicineDto.code;
-    if (!code) {
+    do {
       code = this.generateStructuredCode();
-      let existing = await this.prisma.medicine.findFirst({ where: { pharmacy_id, code, deletedAt: null } });
-      while (existing) {
-        code = this.generateStructuredCode();
-        existing = await this.prisma.medicine.findFirst({ where: { pharmacy_id, code, deletedAt: null } });
-      }
-    } else {
-      const existing = await this.prisma.medicine.findFirst({ where: { pharmacy_id, code, deletedAt: null } });
+      exists = (await this.prisma.medicine.findFirst({
+        where: {
+          pharmacyId,
+          code,
+          deletedAt: null,
+        },
+        select: { id: true },
+      })) !== null;
+      attempts++;
+    } while (exists && attempts < maxAttempts);
+
+    if (exists) {
+      throw new InternalServerErrorException('Unable to generate unique code');
+    }
+
+    return code;
+  }
+
+  async create(
+    createMedicineDto: CreateMedicineDto,
+    pharmacyId: string,
+  ): Promise<any> {
+    this.validatePriceRule(
+      createMedicineDto.costPrice,
+      createMedicineDto.sellingPrice,
+    );
+
+    const code = createMedicineDto.code || (await this.generateUniqueCode(pharmacyId));
+
+    if (createMedicineDto.code) {
+      const existing = await this.prisma.medicine.findFirst({
+        where: {
+          pharmacyId,
+          code: createMedicineDto.code,
+          deletedAt: null,
+        },
+      });
       if (existing) {
-        throw new ConflictException(`Un médicament avec le code '${code}' existe déjà pour cette pharmacie.`);
+        throw new ConflictException(
+          `Medicine with code '${createMedicineDto.code}' already exists`,
+        );
       }
     }
 
     if (createMedicineDto.barcode) {
       const existingBarcode = await this.prisma.medicine.findFirst({
-        where: { pharmacy_id, barcode: createMedicineDto.barcode, deletedAt: null },
+        where: {
+          pharmacyId,
+          barcode: createMedicineDto.barcode,
+          deletedAt: null,
+        },
       });
       if (existingBarcode) {
-        throw new ConflictException(`Le code-barres '${createMedicineDto.barcode}' est déjà attribué à un autre produit.`);
+        throw new ConflictException(
+          `Barcode '${createMedicineDto.barcode}' already assigned`,
+        );
       }
     }
 
@@ -55,27 +107,42 @@ export class MedicineService {
         data: {
           ...createMedicineDto,
           code,
-          pharmacy_id,
-        } as any,
+          pharmacyId,
+          isActive: true,
+          costPrice: createMedicineDto.costPrice ?? 0,
+          sellingPrice: createMedicineDto.sellingPrice ?? 0,
+        },
         include: {
           category: true,
           manufacturer: true,
         },
       });
     } catch (error: any) {
-      if (error.code === 'P2002') {
-        throw new ConflictException("Erreur d'unicité : un champ unique existe déjà.");
+      this.logger.error(`Failed to create medicine: ${error.message}`);
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new ConflictException('Unique constraint violation');
+        }
       }
-      throw new InternalServerErrorException('Erreur lors de la création du médicament.');
+      throw new InternalServerErrorException('Failed to create medicine');
     }
   }
 
-  async findAll(query: QueryParamsDto, pharmacy_id: string = 'default'): Promise<PaginatedResponseDto<any>> {
-    const { page = 1, limit = 20, search, sortBy = 'createdAt', sortOrder = SortOrder.DESC } = query;
-    const skip = (page - 1) * limit;
+  async findAll(
+    query: QueryParamsDto,
+    pharmacyId: string,
+  ): Promise<PaginatedResponseDto<any>> {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
 
-    const where: any = {
-      pharmacy_id,
+    const skip = (page - 1) * limit;
+    const where: Prisma.MedicineWhereInput = {
+      pharmacyId,
       deletedAt: null,
     };
 
@@ -105,9 +172,13 @@ export class MedicineService {
     return new PaginatedResponseDto(data, total, page, limit);
   }
 
-  async findOne(id: string, pharmacy_id: string = 'default'): Promise<any> {
+  async findOne(id: string, pharmacyId: string): Promise<any> {
     const medicine = await this.prisma.medicine.findFirst({
-      where: { id, pharmacy_id, deletedAt: null },
+      where: {
+        id,
+        pharmacyId,
+        deletedAt: null,
+      },
       include: {
         category: true,
         manufacturer: true,
@@ -115,56 +186,104 @@ export class MedicineService {
     });
 
     if (!medicine) {
-      throw new NotFoundException(`Médicament avec l'ID '${id}' introuvable.`);
+      throw new NotFoundException(`Medicine with ID '${id}' not found`);
     }
 
     return medicine;
   }
 
-  async update(id: string, updateMedicineDto: UpdateMedicineDto, pharmacy_id: string = 'default'): Promise<any> {
-    const existingMedicine = await this.findOne(id, pharmacy_id);
+  async findByBarcode(barcode: string, pharmacyId: string): Promise<any> {
+    const medicine = await this.prisma.medicine.findFirst({
+      where: {
+        barcode,
+        pharmacyId,
+        deletedAt: null,
+      },
+      include: {
+        category: true,
+        manufacturer: true,
+      },
+    });
 
-    const costPrice = updateMedicineDto.costPrice !== undefined ? updateMedicineDto.costPrice : Number(existingMedicine.costPrice);
-    const sellingPrice = updateMedicineDto.sellingPrice !== undefined ? updateMedicineDto.sellingPrice : Number(existingMedicine.sellingPrice);
+    if (!medicine) {
+      throw new NotFoundException(
+        `Medicine with barcode '${barcode}' not found`,
+      );
+    }
+
+    return medicine;
+  }
+
+  async update(
+    id: string,
+    updateMedicineDto: UpdateMedicineDto,
+    pharmacyId: string,
+  ): Promise<any> {
+    const existingMedicine = await this.findOne(id, pharmacyId);
+
+    const costPrice = updateMedicineDto.costPrice ?? existingMedicine.costPrice;
+    const sellingPrice =
+      updateMedicineDto.sellingPrice ?? existingMedicine.sellingPrice;
     this.validatePriceRule(costPrice, sellingPrice);
 
     if (updateMedicineDto.code) {
       const existingCode = await this.prisma.medicine.findFirst({
-        where: { pharmacy_id, code: updateMedicineDto.code, deletedAt: null, NOT: { id } },
+        where: {
+          pharmacyId,
+          code: updateMedicineDto.code,
+          deletedAt: null,
+          NOT: { id },
+        },
       });
       if (existingCode) {
-        throw new ConflictException(`Le code '${updateMedicineDto.code}' est déjà utilisé par un autre médicament.`);
+        throw new ConflictException(
+          `Code '${updateMedicineDto.code}' already in use`,
+        );
       }
     }
 
     if (updateMedicineDto.barcode) {
       const existingBarcode = await this.prisma.medicine.findFirst({
-        where: { pharmacy_id, barcode: updateMedicineDto.barcode, deletedAt: null, NOT: { id } },
+        where: {
+          pharmacyId,
+          barcode: updateMedicineDto.barcode,
+          deletedAt: null,
+          NOT: { id },
+        },
       });
       if (existingBarcode) {
-        throw new ConflictException(`Le code-barres '${updateMedicineDto.barcode}' est déjà utilisé par un autre médicament.`);
+        throw new ConflictException(
+          `Barcode '${updateMedicineDto.barcode}' already in use`,
+        );
       }
     }
 
     try {
       return await this.prisma.medicine.update({
         where: { id },
-        data: updateMedicineDto as any,
+        data: {
+          ...updateMedicineDto,
+          costPrice: updateMedicineDto.costPrice ?? existingMedicine.costPrice,
+          sellingPrice: updateMedicineDto.sellingPrice ?? existingMedicine.sellingPrice,
+        },
         include: {
           category: true,
           manufacturer: true,
         },
       });
     } catch (error: any) {
-      if (error.code === 'P2002') {
-        throw new ConflictException("Erreur de contrainte d'unicité lors de la mise à jour.");
+      this.logger.error(`Failed to update medicine: ${error.message}`);
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new ConflictException('Unique constraint violation');
+        }
       }
-      throw new InternalServerErrorException('Erreur lors de la mise à jour du médicament.');
+      throw new InternalServerErrorException('Failed to update medicine');
     }
   }
 
-  async remove(id: string, pharmacy_id: string = 'default'): Promise<any> {
-    await this.findOne(id, pharmacy_id);
+  async remove(id: string, pharmacyId: string): Promise<any> {
+    await this.findOne(id, pharmacyId);
 
     return this.prisma.medicine.update({
       where: { id },

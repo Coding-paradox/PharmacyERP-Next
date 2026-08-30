@@ -35,6 +35,11 @@ enum PaymentMethod {
   BANK_TRANSFER
 }
 
+enum Currency {
+  CDF
+  USD
+}
+
 enum InventoryMovementType {
   PURCHASE
   SALE
@@ -88,11 +93,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  sales         Sale[]
-  purchases     Purchase[]
-  inventoryMovements InventoryMovement[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
+  sales               Sale[]
+  purchases           Purchase[]
+  inventoryMovements  InventoryMovement[]
 
   @@unique([pharmacyId, email])
   @@index([pharmacyId, isActive])
@@ -123,6 +129,11 @@ model Pharmacy {
   categories   Category[]
   manufacturers Manufacturer[]
   units        Unit[]
+  suppliers    Supplier[]
+  customers    Customer[]
+  genericNames GenericName[]
+  dosages      Dosage[]
+  dosageForms  DosageForm[]
 
   @@index([tenantId])
   @@map("pharmacies")
@@ -161,6 +172,42 @@ model Manufacturer {
   @@map("manufacturers")
 }
 
+model Supplier {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  email       String?
+  phone       String?
+  address     String?
+  pharmacyId  String
+  pharmacy    Pharmacy    @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  purchases   Purchase[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([pharmacyId, name])
+  @@index([pharmacyId])
+  @@map("suppliers")
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  currency   String   @default("CDF")
+  pharmacyId String
+  pharmacy   Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  sales      Sale[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([pharmacyId])
+  @@index([name])
+  @@map("customers")
+}
+
 model Unit {
   id           String     @id @default(uuid())
   name         String
@@ -176,14 +223,62 @@ model Unit {
   @@map("units")
 }
 
+model GenericName {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  pharmacyId  String
+  pharmacy    Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  medicines   Medicine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([pharmacyId, name])
+  @@index([pharmacyId])
+  @@map("generic_names")
+}
+
+model Dosage {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  pharmacyId  String
+  pharmacy    Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  medicines   Medicine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([pharmacyId, name])
+  @@index([pharmacyId])
+  @@map("dosages")
+}
+
+model DosageForm {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  pharmacyId  String
+  pharmacy    Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  medicines   Medicine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([pharmacyId, name])
+  @@index([pharmacyId])
+  @@map("dosage_forms")
+}
+
 model Medicine {
   id               String           @id @default(uuid())
   code             String
   barcode          String?
   name             String
-  genericName      String?
-  dosage           String?
-  dosageForm       String?
+  genericNameId    String?
+  genericName      GenericName?     @relation(fields: [genericNameId], references: [id], onDelete: SetNull)
+  dosageId         String?
+  dosage           Dosage?          @relation(fields: [dosageId], references: [id], onDelete: SetNull)
+  dosageFormId     String?
+  dosageForm       DosageForm?      @relation(fields: [dosageFormId], references: [id], onDelete: SetNull)
   categoryId       String?
   category         Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   manufacturerId   String?
@@ -191,7 +286,9 @@ model Medicine {
   unitId           String?
   unit             Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
   costPrice        Decimal          @db.Decimal(10, 2)
+  costCurrency     Currency         @default(CDF)
   sellingPrice     Decimal          @db.Decimal(10, 2)
+  sellingCurrency  Currency         @default(CDF)
   stock            Int              @default(0)
   minStock         Int              @default(5)
   maxStock         Int?
@@ -222,12 +319,15 @@ model Medicine {
 model Sale {
   id              String           @id @default(uuid())
   invoiceNumber   String           @unique
+  customerId      String?
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   customerName    String?
   customerPhone   String?
   totalAmount     Decimal          @db.Decimal(10, 2)
   discount        Decimal          @db.Decimal(10, 2) @default(0)
   tax             Decimal          @db.Decimal(10, 2) @default(0)
   netAmount       Decimal          @db.Decimal(10, 2)
+  currency        Currency         @default(CDF)
   paymentMethod   PaymentMethod    @default(CASH)
   status          OrderStatus      @default(PENDING)
   notes           String?
@@ -255,6 +355,7 @@ model SaleItem {
   quantity        Int
   unitPrice       Decimal          @db.Decimal(10, 2)
   totalPrice      Decimal          @db.Decimal(10, 2)
+  currency        Currency         @default(CDF)
   discount        Decimal          @db.Decimal(10, 2) @default(0)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -267,11 +368,14 @@ model SaleItem {
 model Purchase {
   id              String           @id @default(uuid())
   invoiceNumber   String           @unique
+  supplierId      String?
+  supplier        Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   supplierName    String
   supplierPhone   String?
   totalAmount     Decimal          @db.Decimal(10, 2)
   tax             Decimal          @db.Decimal(10, 2) @default(0)
   netAmount       Decimal          @db.Decimal(10, 2)
+  currency        Currency         @default(CDF)
   status          OrderStatus      @default(PENDING)
   notes           String?
   pharmacyId      String
@@ -297,6 +401,7 @@ model PurchaseItem {
   quantity        Int
   unitPrice       Decimal          @db.Decimal(10, 2)
   totalPrice      Decimal          @db.Decimal(10, 2)
+  currency        Currency         @default(CDF)
   expiryDate      DateTime?
   batchNumber     String?
   createdAt       DateTime         @default(now())
@@ -345,6 +450,21 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 model AuditLog {

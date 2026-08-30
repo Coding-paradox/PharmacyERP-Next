@@ -37,6 +37,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "type-check": "tsc --noEmit",
     "dev": "tsc --watch",
     "clean": "rm -rf dist"
   },

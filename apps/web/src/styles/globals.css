@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 180 20% 98%;
+    --foreground: 180 100% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 180 100% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 180 100% 8%;
+    --primary: 180 80% 20%;
+    --primary-foreground: 180 20% 98%;
+    --secondary: 180 30% 95%;
+    --secondary-foreground: 180 80% 15%;
+    --muted: 180 20% 95%;
+    --muted-foreground: 180 20% 40%;
+    --accent: 180 30% 90%;
+    --accent-foreground: 180 80% 15%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 180 15% 85%;
+    --input: 180 15% 85%;
+    --ring: 180 80% 20%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 180 100% 6%;
+    --foreground: 180 20% 98%;
+    --card: 180 100% 10%;
+    --card-foreground: 180 20% 98%;
+    --popover: 180 100% 10%;
+    --popover-foreground: 180 20% 98%;
+    --primary: 180 60% 45%;
+    --primary-foreground: 180 100% 6%;
+    --secondary: 180 30% 18%;
+    --secondary-foreground: 180 20% 98%;
+    --muted: 180 30% 18%;
+    --muted-foreground: 180 20% 60%;
+    --accent: 180 30% 18%;
+    --accent-foreground: 180 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 180 20% 98%;
+    --border: 180 30% 18%;
+    --input: 180 30% 18%;
+    --ring: 180 60% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  .card-shadow {
+    @apply shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-teal-700 text-white hover:bg-teal-800 focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
+  }
+  
+  .input-field {
+    @apply w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:outline-none transition-all duration-200;
+  }
+  
+  .table-container {
+    @apply overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm;
+  }
+  
+  .table-header {
+    @apply bg-gray-50/80 px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500;
+  }
+  
+  .table-row {
+    @apply hover:bg-teal-50/50 transition-colors duration-150;
+  }
+  
+  .table-cell {
+    @apply px-6 py-4 text-sm text-gray-700;
+  }
+  
+  .stat-card {
+    @apply rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100/50;
+  }
+  
+  .badge {
+    @apply inline-flex rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+  
+  .badge-green {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .badge-yellow {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-red {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .badge-purple {
+    @apply bg-purple-100 text-purple-800;
+  }
+  
+  .badge-gray {
+    @apply bg-gray-100 text-gray-800;
+  }
+}

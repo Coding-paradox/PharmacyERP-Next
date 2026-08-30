@@ -65,13 +65,16 @@ export class MedicineService {
     createMedicineDto: CreateMedicineDto,
     pharmacyId: string,
   ): Promise<any> {
+    // Vérification de la règle de prix
     this.validatePriceRule(
       createMedicineDto.costPrice,
       createMedicineDto.sellingPrice,
     );
 
+    // Génération du code
     const code = createMedicineDto.code || (await this.generateUniqueCode(pharmacyId));
 
+    // Vérification du code unique
     if (createMedicineDto.code) {
       const existing = await this.prisma.medicine.findFirst({
         where: {
@@ -87,6 +90,7 @@ export class MedicineService {
       }
     }
 
+    // Vérification du barcode
     if (createMedicineDto.barcode) {
       const existingBarcode = await this.prisma.medicine.findFirst({
         where: {
@@ -103,28 +107,54 @@ export class MedicineService {
     }
 
     try {
-      return await this.prisma.medicine.create({
+      const medicine = await this.prisma.medicine.create({
         data: {
-          ...createMedicineDto,
           code,
-          pharmacyId,
-          isActive: true,
+          barcode: createMedicineDto.barcode || null,
+          name: createMedicineDto.name,
+          genericNameId: createMedicineDto.genericNameId || null,
+          dosageId: createMedicineDto.dosageId || null,
+          dosageFormId: createMedicineDto.dosageFormId || null,
+          categoryId: createMedicineDto.categoryId || null,
+          manufacturerId: createMedicineDto.manufacturerId || null,
+          unitId: createMedicineDto.unitId || null,
           costPrice: createMedicineDto.costPrice ?? 0,
           sellingPrice: createMedicineDto.sellingPrice ?? 0,
+          minStock: createMedicineDto.minStock ?? 5,
+          isActive: createMedicineDto.isActive ?? true,
+          pharmacyId,
         },
         include: {
           category: true,
           manufacturer: true,
+          unit: true,
+          genericName: true,
+          dosage: true,
+          dosageForm: true,
         },
       });
+
+      this.logger.log(`Medicine created: ${medicine.code} - ${medicine.name}`);
+      return medicine;
     } catch (error: any) {
       this.logger.error(`Failed to create medicine: ${error.message}`);
+      
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new ConflictException('Unique constraint violation');
+          throw new ConflictException(
+            `A medicine with this ${error.meta?.target?.[0] || 'field'} already exists`
+          );
+        }
+        if (error.code === 'P2003') {
+          throw new BadRequestException(
+            `Invalid reference: ${error.meta?.field_name || 'related entity not found'}`
+          );
         }
       }
-      throw new InternalServerErrorException('Failed to create medicine');
+      
+      throw new InternalServerErrorException(
+        'Failed to create medicine. Please check the data and try again.'
+      );
     }
   }
 
@@ -151,7 +181,11 @@ export class MedicineService {
         { code: { contains: search, mode: 'insensitive' } },
         { barcode: { contains: search, mode: 'insensitive' } },
         { name: { contains: search, mode: 'insensitive' } },
-        { genericName: { contains: search, mode: 'insensitive' } },
+        { genericName: { name: { contains: search, mode: 'insensitive' } } },
+        { dosage: { name: { contains: search, mode: 'insensitive' } } },
+        { dosageForm: { name: { contains: search, mode: 'insensitive' } } },
+        { category: { name: { contains: search, mode: 'insensitive' } } },
+        { manufacturer: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
@@ -165,6 +199,10 @@ export class MedicineService {
         include: {
           category: true,
           manufacturer: true,
+          unit: true,
+          genericName: true,
+          dosage: true,
+          dosageForm: true,
         },
       }),
     ]);
@@ -182,6 +220,10 @@ export class MedicineService {
       include: {
         category: true,
         manufacturer: true,
+        unit: true,
+        genericName: true,
+        dosage: true,
+        dosageForm: true,
       },
     });
 
@@ -202,6 +244,10 @@ export class MedicineService {
       include: {
         category: true,
         manufacturer: true,
+        unit: true,
+        genericName: true,
+        dosage: true,
+        dosageForm: true,
       },
     });
 
@@ -259,23 +305,47 @@ export class MedicineService {
     }
 
     try {
-      return await this.prisma.medicine.update({
+      const medicine = await this.prisma.medicine.update({
         where: { id },
         data: {
-          ...updateMedicineDto,
+          code: updateMedicineDto.code,
+          barcode: updateMedicineDto.barcode,
+          name: updateMedicineDto.name,
+          genericNameId: updateMedicineDto.genericNameId || null,
+          dosageId: updateMedicineDto.dosageId || null,
+          dosageFormId: updateMedicineDto.dosageFormId || null,
+          categoryId: updateMedicineDto.categoryId || null,
+          manufacturerId: updateMedicineDto.manufacturerId || null,
+          unitId: updateMedicineDto.unitId || null,
           costPrice: updateMedicineDto.costPrice ?? existingMedicine.costPrice,
           sellingPrice: updateMedicineDto.sellingPrice ?? existingMedicine.sellingPrice,
+          minStock: updateMedicineDto.minStock ?? existingMedicine.minStock,
+          isActive: updateMedicineDto.isActive ?? existingMedicine.isActive,
         },
         include: {
           category: true,
           manufacturer: true,
+          unit: true,
+          genericName: true,
+          dosage: true,
+          dosageForm: true,
         },
       });
+
+      this.logger.log(`Medicine updated: ${medicine.code} - ${medicine.name}`);
+      return medicine;
     } catch (error: any) {
       this.logger.error(`Failed to update medicine: ${error.message}`);
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new ConflictException('Unique constraint violation');
+          throw new ConflictException(
+            `A medicine with this ${error.meta?.target?.[0] || 'field'} already exists`
+          );
+        }
+        if (error.code === 'P2003') {
+          throw new BadRequestException(
+            `Invalid reference: ${error.meta?.field_name || 'related entity not found'}`
+          );
         }
       }
       throw new InternalServerErrorException('Failed to update medicine');
@@ -285,6 +355,7 @@ export class MedicineService {
   async remove(id: string, pharmacyId: string): Promise<any> {
     await this.findOne(id, pharmacyId);
 
+    this.logger.log(`Medicine removed: ${id}`);
     return this.prisma.medicine.update({
       where: { id },
       data: {

@@ -12,24 +12,24 @@ export enum RegisterRole {
 export class RegisterDto {
   @ApiProperty({ example: 'john@pharmacy.com' })
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiProperty({ example: 'SecurePass123!' })
   @IsString()
   @MinLength(8)
-  password: string;
+  password!: string;
 
   @ApiProperty({ example: 'John' })
   @IsString()
-  firstName: string;
+  firstName!: string;
 
   @ApiProperty({ example: 'Doe' })
   @IsString()
-  lastName: string;
+  lastName!: string;
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsUUID()
-  pharmacyId: string;
+  pharmacyId!: string;
 
   @ApiProperty({ enum: RegisterRole, default: RegisterRole.VIEWER })
   @IsEnum(RegisterRole)

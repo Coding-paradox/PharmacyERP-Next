@@ -9,7 +9,20 @@ import {
   MaxLength,
   IsPositive,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+
+/**
+ * Convertit une chaîne vide ('') en `undefined` avant validation.
+ *
+ * Nécessaire car @IsOptional() de class-validator ne saute la validation
+ * que pour `undefined`/`null`, jamais pour une chaîne vide. Sans ce
+ * transform, un <select> HTML laissé sur sa valeur par défaut ('') fait
+ * échouer @IsUUID() et renvoie une 400, même si le frontend est corrigé
+ * (défense en profondeur : l'API ne doit pas dépendre uniquement du
+ * frontend pour ce genre de normalisation).
+ */
+const emptyStringToUndefined = () =>
+  Transform(({ value }) => (value === '' ? undefined : value));
 
 export class CreateMedicineDto {
   @ApiPropertyOptional({
@@ -25,6 +38,7 @@ export class CreateMedicineDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
     description: 'Category ID',
   })
+  @emptyStringToUndefined()
   @IsUUID()
   @IsOptional()
   categoryId?: string;
@@ -33,6 +47,7 @@ export class CreateMedicineDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
     description: 'Manufacturer ID',
   })
+  @emptyStringToUndefined()
   @IsUUID()
   @IsOptional()
   manufacturerId?: string;
@@ -41,6 +56,7 @@ export class CreateMedicineDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
     description: 'Unit of measure ID',
   })
+  @emptyStringToUndefined()
   @IsUUID()
   @IsOptional()
   unitId?: string;
@@ -60,31 +76,31 @@ export class CreateMedicineDto {
   name!: string;
 
   @ApiPropertyOptional({
-    example: 'Acetaminophen',
-    description: 'Generic name',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Generic Name ID',
   })
-  @IsString()
+  @emptyStringToUndefined()
+  @IsUUID()
   @IsOptional()
-  @MaxLength(150)
-  genericName?: string;
+  genericNameId?: string;
 
   @ApiPropertyOptional({
-    example: '500mg',
-    description: 'Dosage strength',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Dosage ID',
   })
-  @IsString()
+  @emptyStringToUndefined()
+  @IsUUID()
   @IsOptional()
-  @MaxLength(50)
-  dosage?: string;
+  dosageId?: string;
 
   @ApiPropertyOptional({
-    example: 'Tablet',
-    description: 'Dosage form',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Dosage Form ID',
   })
-  @IsString()
+  @emptyStringToUndefined()
+  @IsUUID()
   @IsOptional()
-  @MaxLength(50)
-  dosageForm?: string;
+  dosageFormId?: string;
 
   @ApiPropertyOptional({
     example: 10,

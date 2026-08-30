@@ -2,6 +2,8 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -9,14 +11,21 @@ import { PrismaService } from '@pharmacy/database';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { EmailService } from '../email/email.service';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -147,7 +156,11 @@ export class AuthService {
     return null;
   }
 
-  private async generateTokens(userId: string, email: string, pharmacyId: string, role: string) {
+  async hashPassword(password: string): Promise<string> {
+    return argon2.hash(password);
+  }
+
+  async generateTokens(userId: string, email: string, pharmacyId: string, role: string) {
     const payload = { sub: userId, email, pharmacyId, role };
 
     const accessToken = this.jwtService.sign(payload);
@@ -169,5 +182,83 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return { message: 'Si cet email existe, un lien de réinitialisation vous a été envoyé.' };
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+
+    await this.prisma.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 3600000),
+      },
+    });
+
+    try {
+      await this.emailService.sendPasswordResetEmail(email, token);
+      this.logger.log(`Password reset email sent to ${email}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        this.logger.error(`Failed to send password reset email: ${error.message}`);
+      } else {
+        this.logger.error('Failed to send password reset email: Unknown error');
+      }
+    }
+
+    return {
+      message: 'Si cet email existe, un lien de réinitialisation vous a été envoyé.',
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const resetToken = await this.prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException('Token invalide ou expiré.');
+    }
+
+    if (resetToken.usedAt) {
+      throw new BadRequestException('Ce token a déjà été utilisé.');
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      throw new BadRequestException('Le token a expiré.');
+    }
+
+    const hashedPassword = await argon2.hash(newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: resetToken.userId },
+        data: { password: hashedPassword },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return { message: 'Mot de passe réinitialisé avec succès.' };
   }
 }

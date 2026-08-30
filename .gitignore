@@ -3,3 +3,7 @@ node_modules
 dist
 .turbo
 *.log
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map

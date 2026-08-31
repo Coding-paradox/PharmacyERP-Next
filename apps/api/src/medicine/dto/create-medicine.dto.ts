@@ -4,12 +4,14 @@ import {
   IsNumber,
   IsOptional,
   IsBoolean,
+  IsEnum,
   Min,
   IsUUID,
   MaxLength,
   IsPositive,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { Currency } from '@prisma/client';
 
 /**
  * Convertit une chaîne vide ('') en `undefined` avant validation.
@@ -123,6 +125,16 @@ export class CreateMedicineDto {
   costPrice?: number;
 
   @ApiPropertyOptional({
+    enum: Currency,
+    default: Currency.CDF,
+    description: 'Currency used for the cost price (CDF or USD)',
+  })
+  @emptyStringToUndefined()
+  @IsEnum(Currency)
+  @IsOptional()
+  costCurrency?: Currency;
+
+  @ApiPropertyOptional({
     example: 2.50,
     description: 'Selling price per unit',
   })
@@ -131,6 +143,16 @@ export class CreateMedicineDto {
   @IsPositive()
   @IsOptional()
   sellingPrice?: number;
+
+  @ApiPropertyOptional({
+    enum: Currency,
+    default: Currency.CDF,
+    description: 'Currency used for the selling price (CDF or USD)',
+  })
+  @emptyStringToUndefined()
+  @IsEnum(Currency)
+  @IsOptional()
+  sellingCurrency?: Currency;
 
   @ApiPropertyOptional({
     example: true,

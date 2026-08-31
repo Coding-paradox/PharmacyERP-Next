@@ -41,6 +41,11 @@ const optionalNonNegativeInt = z.preprocess(
   z.number().int().min(0, 'Doit être positif ou nul').optional(),
 );
 
+// CDF (Franc congolais) et USD (Dollar américain) : les deux devises
+// gérées par l'application, conformément à la réalité du terrain en RDC
+// où les prix peuvent être fixés dans l'une ou l'autre.
+const currencyEnum = z.enum(['CDF', 'USD']);
+
 const medicineSchema = z.object({
   code: z.string().optional(),
   barcode: z.string().optional(),
@@ -52,7 +57,9 @@ const medicineSchema = z.object({
   manufacturerId: optionalUuid,
   unitId: optionalUuid,
   costPrice: optionalPositiveNumber,
+  costCurrency: currencyEnum.default('CDF'),
   sellingPrice: optionalPositiveNumber,
+  sellingCurrency: currencyEnum.default('CDF'),
   minStock: optionalNonNegativeInt,
   isActive: z.boolean().default(true),
   pharmacyId: z.string().uuid('ID de pharmacie invalide'),
@@ -93,6 +100,8 @@ export function MedicineForm() {
     resolver: zodResolver(medicineSchema),
     defaultValues: {
       isActive: true,
+      costCurrency: 'CDF',
+      sellingCurrency: 'CDF',
     },
   });
 
@@ -145,7 +154,9 @@ export function MedicineForm() {
         manufacturerId: medicine.manufacturerId || '',
         unitId: medicine.unitId || '',
         costPrice: medicine.costPrice,
+        costCurrency: medicine.costCurrency || 'CDF',
         sellingPrice: medicine.sellingPrice,
+        sellingCurrency: medicine.sellingCurrency || 'CDF',
         minStock: medicine.minStock,
         isActive: medicine.isActive,
         pharmacyId: medicine.pharmacyId,
@@ -389,14 +400,26 @@ export function MedicineForm() {
               <label className="block text-sm font-medium text-gray-700">
                 Prix d'achat
               </label>
-              <input
-                type="number"
-                step="0.01"
-                {...register('costPrice', { valueAsNumber: true })}
-                className="input-field"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register('costPrice', { valueAsNumber: true })}
+                  className="input-field flex-1"
+                />
+                <select
+                  {...register('costCurrency')}
+                  className="input-field w-24"
+                >
+                  <option value="CDF">CDF</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
               {errors.costPrice && (
                 <p className="mt-1 text-sm text-red-600">{errors.costPrice.message}</p>
+              )}
+              {errors.costCurrency && (
+                <p className="mt-1 text-sm text-red-600">{errors.costCurrency.message}</p>
               )}
             </div>
 
@@ -404,14 +427,26 @@ export function MedicineForm() {
               <label className="block text-sm font-medium text-gray-700">
                 Prix de vente
               </label>
-              <input
-                type="number"
-                step="0.01"
-                {...register('sellingPrice', { valueAsNumber: true })}
-                className="input-field"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register('sellingPrice', { valueAsNumber: true })}
+                  className="input-field flex-1"
+                />
+                <select
+                  {...register('sellingCurrency')}
+                  className="input-field w-24"
+                >
+                  <option value="CDF">CDF</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
               {errors.sellingPrice && (
                 <p className="mt-1 text-sm text-red-600">{errors.sellingPrice.message}</p>
+              )}
+              {errors.sellingCurrency && (
+                <p className="mt-1 text-sm text-red-600">{errors.sellingCurrency.message}</p>
               )}
             </div>
 

@@ -15,6 +15,16 @@ import { Currency, Prisma, OrderStatus, PaymentMethod } from '@prisma/client';
 export class SalesService {
   private readonly logger = new Logger(SalesService.name);
 
+  // Plafond de remise autorisé par ligne de vente, en pourcentage du
+  // sous-total de la ligne. Empêche un caissier de saisir un prix
+  // arbitraire tout en gardant une marge de négociation légitime et
+  // TRAÇABLE (le champ `discount` reste visible dans les rapports, à la
+  // différence d'un prix librement modifié qui masquerait l'écart).
+  //
+  // TODO : rendre ce plafond configurable par pharmacie (table Pharmacy)
+  // plutôt qu'une constante en dur, une fois ce comportement validé.
+  private readonly MAX_ITEM_DISCOUNT_RATIO = 0.15;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createSaleDto: CreateSaleDto, userId: string) {
@@ -39,7 +49,15 @@ export class SalesService {
         let totalAmount = 0;
         const saleItems = [];
 
-        // Vérifier les stocks
+        // On mémorise le mouvement de stock exact de chaque ligne pour créer
+        // l'historique d'audit une fois la vente elle-même créée.
+        const stockMovements: {
+          medicineId: string;
+          quantity: number;
+          previousStock: number;
+          newStock: number;
+        }[] = [];
+
         for (const item of items) {
           const medicine = await tx.medicine.findUnique({
             where: { id: item.medicineId },
@@ -49,12 +67,6 @@ export class SalesService {
             throw new NotFoundException(`Médicament ${item.medicineId} non trouvé.`);
           }
 
-          if (medicine.stock < item.quantity) {
-            throw new ConflictException(
-              `Stock insuffisant pour ${medicine.name}. Disponible: ${medicine.stock}, Demandé: ${item.quantity}`,
-            );
-          }
-
           const itemCurrency = item.currency ?? medicine.sellingCurrency;
           if (itemCurrency !== currency) {
             throw new BadRequestException(
@@ -62,14 +74,65 @@ export class SalesService {
             );
           }
 
+          // Décrémentation ATOMIQUE et conditionnelle du stock.
+          //
+          // La clause `stock: { gte: item.quantity }` dans le WHERE et le
+          // `decrement` dans le SET s'exécutent en une seule instruction SQL
+          // gérée par PostgreSQL — impossible que deux ventes concurrentes du
+          // même médicament fassent passer le stock sous zéro, contrairement
+          // à l'ancienne version qui lisait le stock puis réécrivait une
+          // valeur absolue en deux temps séparés (vulnérable à une "perte de
+          // mise à jour" : deux caissiers vendant le même médicament en même
+          // temps pouvaient tous les deux réussir alors qu'un seul aurait dû).
+          const decrementResult = await tx.medicine.updateMany({
+            where: { id: item.medicineId, stock: { gte: item.quantity } },
+            data: { stock: { decrement: item.quantity } },
+          });
+
+          if (decrementResult.count === 0) {
+            throw new ConflictException(
+              `Stock insuffisant pour ${medicine.name}. Disponible: ${medicine.stock}, Demandé: ${item.quantity}`,
+            );
+          }
+
+          // On relit le stock réel après décrémentation (dans la même
+          // transaction) pour que l'historique de mouvement soit exact,
+          // même en cas de forte concurrence.
+          const updatedMedicine = await tx.medicine.findUniqueOrThrow({
+            where: { id: item.medicineId },
+            select: { stock: true },
+          });
+
+          stockMovements.push({
+            medicineId: item.medicineId,
+            quantity: item.quantity,
+            previousStock: updatedMedicine.stock + item.quantity,
+            newStock: updatedMedicine.stock,
+          });
+
           const itemDiscount = item.discount || 0;
-          const total = (item.quantity * item.unitPrice) - itemDiscount;
+
+          // Le prix de vente vient TOUJOURS du médicament enregistré en
+          // base, jamais de ce que le client envoie — sinon rien
+          // n'empêche un prix falsifié (erreur ou fraude) de fausser tout
+          // le suivi de bénéfice en temps réel du propriétaire.
+          const unitPrice = Number(medicine.sellingPrice);
+          const lineSubtotal = item.quantity * unitPrice;
+
+          const maxAllowedDiscount = lineSubtotal * this.MAX_ITEM_DISCOUNT_RATIO;
+          if (itemDiscount > maxAllowedDiscount) {
+            throw new BadRequestException(
+              `La remise sur ${medicine.name} (${itemDiscount}) dépasse le plafond autorisé de ${this.MAX_ITEM_DISCOUNT_RATIO * 100}% (max ${maxAllowedDiscount.toFixed(2)}).`,
+            );
+          }
+
+          const total = lineSubtotal - itemDiscount;
           totalAmount += total;
 
           saleItems.push({
             medicineId: item.medicineId,
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
+            unitPrice,
             totalPrice: total,
             currency,
             discount: itemDiscount,
@@ -81,7 +144,9 @@ export class SalesService {
         const taxAmount = tax || 0;
         const finalTotal = netAmount - discountAmount + taxAmount;
 
-        // Créer la vente
+        // Créer la vente (le stock a déjà été réservé atomiquement ci-dessus ;
+        // si la création échoue ici, toute la transaction est annulée et le
+        // stock est automatiquement restauré par PostgreSQL).
         const sale = await tx.sale.create({
           data: {
             invoiceNumber: `INV-${Date.now()}`,
@@ -124,27 +189,17 @@ export class SalesService {
           },
         });
 
-        // Mettre à jour les stocks
-        for (const item of items) {
-          const medicine = await tx.medicine.findUnique({
-            where: { id: item.medicineId },
-          });
-
-          const newStock = (medicine?.stock || 0) - item.quantity;
-
-          await tx.medicine.update({
-            where: { id: item.medicineId },
-            data: { stock: newStock },
-          });
-
+        // Journaliser les mouvements de stock, maintenant que la vente existe
+        // (nécessaire pour le referenceId).
+        for (const movement of stockMovements) {
           await tx.inventoryMovement.create({
             data: {
-              medicineId: item.medicineId,
+              medicineId: movement.medicineId,
               pharmacyId,
               userId,
-              quantity: -item.quantity,
-              previousStock: medicine?.stock || 0,
-              newStock: newStock,
+              quantity: -movement.quantity,
+              previousStock: movement.previousStock,
+              newStock: movement.newStock,
               movementType: 'SALE',
               referenceId: sale.id,
               referenceType: 'sale',
@@ -319,17 +374,20 @@ export class SalesService {
           data: { status: OrderStatus.CANCELLED },
         });
 
-        // Restaurer les stocks
+        // Restaurer les stocks. L'incrément est intrinsèquement sûr en
+        // concurrence (contrairement à la décrémentation, additionner ne
+        // peut jamais faire passer le stock sous zéro), on utilise quand
+        // même l'opérateur atomique `increment` plutôt qu'une réécriture de
+        // valeur absolue, par cohérence et pour garder un historique exact.
         for (const item of sale.saleItems) {
-          const medicine = await tx.medicine.findUnique({
-            where: { id: item.medicineId },
-          });
-
-          const newStock = (medicine?.stock || 0) + item.quantity;
-
           await tx.medicine.update({
             where: { id: item.medicineId },
-            data: { stock: newStock },
+            data: { stock: { increment: item.quantity } },
+          });
+
+          const updatedMedicine = await tx.medicine.findUniqueOrThrow({
+            where: { id: item.medicineId },
+            select: { stock: true },
           });
 
           await tx.inventoryMovement.create({
@@ -338,8 +396,8 @@ export class SalesService {
               pharmacyId,
               userId: sale.userId,
               quantity: item.quantity,
-              previousStock: medicine?.stock || 0,
-              newStock: newStock,
+              previousStock: updatedMedicine.stock - item.quantity,
+              newStock: updatedMedicine.stock,
               movementType: 'RETURN',
               referenceId: sale.id,
               referenceType: 'sale_cancel',
@@ -352,7 +410,7 @@ export class SalesService {
       });
     } catch (error: any) {
       this.logger.error(`Failed to cancel sale: ${error.message}`);
-      throw new InternalServerErrorException('Erreur lors de l\'annulation de la vente');
+      throw new InternalServerErrorException("Erreur lors de l'annulation de la vente");
     }
   }
 }

@@ -142,7 +142,7 @@ export class MedicineService {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ConflictException(
-            `A medicine with this ${error.meta?.target?.[0] || 'field'} already exists`
+            `A medicine with this ${(error.meta?.target as string[] | undefined)?.[0] || 'field'} already exists`
           );
         }
         if (error.code === 'P2003') {
@@ -339,7 +339,7 @@ export class MedicineService {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ConflictException(
-            `A medicine with this ${error.meta?.target?.[0] || 'field'} already exists`
+            `A medicine with this ${(error.meta?.target as string[] | undefined)?.[0] || 'field'} already exists`
           );
         }
         if (error.code === 'P2003') {

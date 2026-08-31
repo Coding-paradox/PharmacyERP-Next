@@ -286,6 +286,21 @@ export class PurchasesService {
 
         // Mettre à jour les stocks
         for (const item of purchase.purchaseItems) {
+          // On lit le stock RÉEL du médicament avant de le modifier, pour
+          // que l'historique de mouvement (inventory_movements) reflète la
+          // vérité — indispensable pour que le propriétaire puisse suivre
+          // fidèlement l'évolution du stock depuis son téléphone. Avant ce
+          // correctif, previousStock était toujours codé en dur à 0 et
+          // newStock reprenait juste la quantité reçue, ce qui rendait tout
+          // l'historique d'audit faux dès la 2e livraison d'un médicament.
+          const medicineBeforeUpdate = await tx.medicine.findUniqueOrThrow({
+            where: { id: item.medicineId },
+            select: { stock: true },
+          });
+
+          const previousStock = medicineBeforeUpdate.stock;
+          const newStock = previousStock + item.quantity;
+
           await tx.medicine.update({
             where: { id: item.medicineId },
             data: {
@@ -304,8 +319,8 @@ export class PurchasesService {
               pharmacyId,
               userId: purchase.userId,
               quantity: item.quantity,
-              previousStock: 0,
-              newStock: item.quantity,
+              previousStock,
+              newStock,
               movementType: 'PURCHASE',
               referenceId: purchase.id,
               referenceType: 'purchase',

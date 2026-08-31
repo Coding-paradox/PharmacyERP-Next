@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,11 +14,27 @@ const categorySchema = z.object({
 
 type CategoryFormData = z.infer<typeof categorySchema>;
 
+/**
+ * Extrait un message d'erreur lisible depuis une réponse d'API en erreur
+ * (Axios). Le backend renvoie `message` en string ou en tableau de strings
+ * (class-validator renvoie un tableau, un message par champ en échec).
+ */
+function extractApiErrorMessage(error: any): string {
+  const data = error?.response?.data;
+  if (!data) return "Une erreur inattendue s'est produite. Vérifiez votre connexion et réessayez.";
+
+  const message = data.message;
+  if (Array.isArray(message)) return message.join(' • ');
+  if (typeof message === 'string') return message;
+  return "Une erreur inattendue s'est produite.";
+}
+
 export function CategoryForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isEdit = !!id;
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
@@ -49,6 +65,9 @@ export function CategoryForm() {
     onSuccess: () => {
       navigate('/categories');
     },
+    onError: (error: any) => {
+      setServerError(extractApiErrorMessage(error));
+    },
   });
 
   const updateMutation = useMutation({
@@ -57,16 +76,29 @@ export function CategoryForm() {
     onSuccess: () => {
       navigate('/categories');
     },
+    onError: (error: any) => {
+      setServerError(extractApiErrorMessage(error));
+    },
   });
 
   const onSubmit = async (data: CategoryFormData) => {
-    if (isEdit && id) {
-      await updateMutation.mutateAsync({ id, data });
-    } else {
-      await createMutation.mutateAsync({
-        ...data,
-        pharmacyId: user?.pharmacyId || '',
-      });
+    setServerError(null);
+    try {
+      if (isEdit && id) {
+        await updateMutation.mutateAsync({ id, data });
+      } else {
+        await createMutation.mutateAsync({
+          ...data,
+          pharmacyId: user?.pharmacyId || '',
+        });
+      }
+    } catch (error) {
+      // L'erreur est déjà capturée et affichée via onError des mutations
+      // ci-dessus. On l'attrape aussi ici pour empêcher toute promesse
+      // rejetée non gérée — c'est exactement ce qui faisait que "le
+      // formulaire s'ouvre mais ne sauvegarde pas" sans aucun message :
+      // avant ce correctif, ni onError ni try/catch n'existaient ici, donc
+      // un échec côté serveur restait invisible.
     }
   };
 
@@ -86,6 +118,12 @@ export function CategoryForm() {
       <h1 className="text-2xl font-bold text-gray-900">
         {isEdit ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
       </h1>
+
+      {serverError && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-medium text-red-800">{serverError}</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
         <div className="rounded-lg border border-gray-200 bg-white p-6">

@@ -68,8 +68,12 @@ export class CategoriesService {
       where,
       orderBy: { name: 'asc' },
       include: {
+        // On ne compte que les médicaments encore actifs (non supprimés).
+        // Medicine utilise une suppression douce (`deletedAt`) : sans ce
+        // filtre, un médicament supprimé restait compté indéfiniment,
+        // bloquant à tort la suppression de sa catégorie.
         _count: {
-          select: { medicines: true },
+          select: { medicines: { where: { deletedAt: null } } },
         },
       },
     });
@@ -83,6 +87,7 @@ export class CategoriesService {
       },
       include: {
         medicines: {
+          where: { deletedAt: null },
           select: {
             id: true,
             name: true,
@@ -90,7 +95,7 @@ export class CategoriesService {
           },
         },
         _count: {
-          select: { medicines: true },
+          select: { medicines: { where: { deletedAt: null } } },
         },
       },
     });

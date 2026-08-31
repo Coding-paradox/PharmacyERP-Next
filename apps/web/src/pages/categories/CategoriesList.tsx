@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, FolderOpen } from 'lucide-react';
-import { categoriesService } from '../../services/categories.service';
+import { categoriesService, type Category } from '../../services/categories.service';
 
 export function CategoriesList() {
   const [search, setSearch] = useState('');
@@ -18,14 +18,32 @@ export function CategoriesList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Erreur lors de la suppression');
+    },
   });
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ?')) {
+  const handleDelete = async (category: Category) => {
+    const medicineCount = category._count?.medicines || 0;
+
+    // Le bouton reste TOUJOURS cliquable — au lieu de le désactiver
+    // silencieusement (ancien comportement : `disabled={...}` sans aucun
+    // changement visuel, donc l'utilisateur ne comprenait pas pourquoi
+    // rien ne se passait), on explique clairement pourquoi la suppression
+    // est bloquée.
+    if (medicineCount > 0) {
+      alert(
+        `Impossible de supprimer "${category.name}" : ${medicineCount} médicament(s) y sont encore rattaché(s). Réassignez-les d'abord à une autre catégorie avant de supprimer celle-ci.`,
+      );
+      return;
+    }
+
+    if (confirm(`Êtes-vous sûr de vouloir supprimer la catégorie "${category.name}" ?`)) {
       try {
-        await deleteMutation.mutateAsync(id);
+        await deleteMutation.mutateAsync(category.id);
       } catch (err: any) {
-        alert(err.response?.data?.message || 'Erreur lors de la suppression');
+        // Erreur déjà affichée via onError ci-dessus ; ce catch empêche
+        // seulement une promesse rejetée non gérée.
       }
     }
   };
@@ -101,44 +119,50 @@ export function CategoriesList() {
                 </td>
               </tr>
             ) : (
-              categories?.map((category) => (
-                <tr key={category.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 text-teal-600" />
-                      {category.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {category.description || '-'}
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-600">
-                    {category._count?.medicines || 0}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/categories/${category.id}/edit`}
-                        className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(category.id)}
-                        className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
-                        disabled={category._count?.medicines > 0}
-                        title={
-                          category._count?.medicines > 0
-                            ? `Utilisée par ${category._count.medicines} médicament(s)`
-                            : ''
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              categories?.map((category) => {
+                const medicineCount = category._count?.medicines || 0;
+                return (
+                  <tr key={category.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-teal-600" />
+                        {category.name}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {category.description || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-600">
+                      {medicineCount}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/categories/${category.id}/edit`}
+                          className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(category)}
+                          className={
+                            medicineCount > 0
+                              ? 'rounded p-1 text-gray-300 hover:bg-gray-50 hover:text-gray-400'
+                              : 'rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600'
+                          }
+                          title={
+                            medicineCount > 0
+                              ? `Utilisée par ${medicineCount} médicament(s) — cliquez pour voir le détail`
+                              : 'Supprimer'
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

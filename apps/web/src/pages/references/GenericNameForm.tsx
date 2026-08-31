@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,11 +14,27 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+/**
+ * Extrait un message d'erreur lisible depuis une réponse d'API en erreur
+ * (Axios). Le backend renvoie `message` en string ou en tableau de strings
+ * (class-validator renvoie un tableau, un message par champ en échec).
+ */
+function extractApiErrorMessage(error: any): string {
+  const data = error?.response?.data;
+  if (!data) return "Une erreur inattendue s'est produite. Vérifiez votre connexion et réessayez.";
+
+  const message = data.message;
+  if (Array.isArray(message)) return message.join(' • ');
+  if (typeof message === 'string') return message;
+  return "Une erreur inattendue s'est produite.";
+}
+
 export function GenericNameForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isEdit = !!id;
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
@@ -44,19 +60,30 @@ export function GenericNameForm() {
   const createMutation = useMutation({
     mutationFn: (data: any) => genericNamesService.create({ ...data, pharmacyId: user?.pharmacyId }),
     onSuccess: () => navigate('/references/generic-names'),
+    onError: (error: any) => {
+      setServerError(extractApiErrorMessage(error));
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       genericNamesService.update(id, data),
     onSuccess: () => navigate('/references/generic-names'),
+    onError: (error: any) => {
+      setServerError(extractApiErrorMessage(error));
+    },
   });
 
   const onSubmit = async (data: FormData) => {
-    if (isEdit && id) {
-      await updateMutation.mutateAsync({ id, data });
-    } else {
-      await createMutation.mutateAsync(data);
+    setServerError(null);
+    try {
+      if (isEdit && id) {
+        await updateMutation.mutateAsync({ id, data });
+      } else {
+        await createMutation.mutateAsync(data);
+      }
+    } catch (error) {
+      // Erreur déjà affichée via onError ci-dessus.
     }
   };
 
@@ -76,6 +103,12 @@ export function GenericNameForm() {
       <h1 className="text-2xl font-bold text-gray-900">
         {isEdit ? 'Modifier le nom générique' : 'Nouveau nom générique'}
       </h1>
+
+      {serverError && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-medium text-red-800">{serverError}</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
         <div className="rounded-lg border border-gray-200 bg-white p-6">

@@ -12,13 +12,16 @@ export function GenericNamesList() {
 
   const { data: items, isLoading, error } = useQuery({
     queryKey: ['generic-names', search],
-    queryFn: () => genericNamesService.findAll(),
+    queryFn: () => genericNamesService.findAll(search),
   });
 
   const deleteMutation = useMutation({
     mutationFn: genericNamesService.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['generic-names'] });
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Erreur lors de la suppression');
     },
   });
 
@@ -27,7 +30,7 @@ export function GenericNamesList() {
       try {
         await deleteMutation.mutateAsync(id);
       } catch (err: any) {
-        alert(err.response?.data?.message || 'Erreur lors de la suppression');
+        // Erreur déjà affichée via onError ci-dessus.
       }
     }
   };

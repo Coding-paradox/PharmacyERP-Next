@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, Ruler } from 'lucide-react';
-import { unitsService } from '../../services/units.service';
+import { unitsService, type Unit } from '../../services/units.service';
 
 export function UnitsList() {
   const [search, setSearch] = useState('');
@@ -18,14 +18,26 @@ export function UnitsList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['units'] });
     },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Erreur lors de la suppression');
+    },
   });
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette unité ?')) {
+  const handleDelete = async (unit: Unit) => {
+    const medicineCount = unit._count?.medicines || 0;
+
+    if (medicineCount > 0) {
+      alert(
+        `Impossible de supprimer "${unit.name}" : ${medicineCount} médicament(s) y sont encore rattaché(s). Réassignez-les d'abord à une autre unité avant de supprimer celle-ci.`,
+      );
+      return;
+    }
+
+    if (confirm(`Êtes-vous sûr de vouloir supprimer l'unité "${unit.name}" ?`)) {
       try {
-        await deleteMutation.mutateAsync(id);
+        await deleteMutation.mutateAsync(unit.id);
       } catch (err: any) {
-        alert(err.response?.data?.message || 'Erreur lors de la suppression');
+        // Erreur déjà affichée via onError ci-dessus.
       }
     }
   };
@@ -101,44 +113,50 @@ export function UnitsList() {
                 </td>
               </tr>
             ) : (
-              units?.map((unit) => (
-                <tr key={unit.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <Ruler className="h-4 w-4 text-teal-600" />
-                      {unit.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {unit.symbol || '-'}
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-600">
-                    {unit._count?.medicines || 0}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/units/${unit.id}/edit`}
-                        className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(unit.id)}
-                        className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
-                        disabled={unit._count?.medicines > 0}
-                        title={
-                          unit._count?.medicines > 0
-                            ? `Utilisée par ${unit._count.medicines} médicament(s)`
-                            : ''
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              units?.map((unit) => {
+                const medicineCount = unit._count?.medicines || 0;
+                return (
+                  <tr key={unit.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <Ruler className="h-4 w-4 text-teal-600" />
+                        {unit.name}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {unit.symbol || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-600">
+                      {medicineCount}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/units/${unit.id}/edit`}
+                          className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(unit)}
+                          className={
+                            medicineCount > 0
+                              ? 'rounded p-1 text-gray-300 hover:bg-gray-50 hover:text-gray-400'
+                              : 'rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600'
+                          }
+                          title={
+                            medicineCount > 0
+                              ? `Utilisée par ${medicineCount} médicament(s) — cliquez pour voir le détail`
+                              : 'Supprimer'
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

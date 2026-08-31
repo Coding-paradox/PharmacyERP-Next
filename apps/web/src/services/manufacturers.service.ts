@@ -50,7 +50,12 @@ class ManufacturersService {
   }
 
   async delete(id: string): Promise<void> {
-    await api.delete(`/manufacturers/${id}`);
+    try {
+      await api.delete(`/manufacturers/${id}`);
+    } catch (error: any) {
+      console.error('[ManufacturersService.delete] Error:', error);
+      throw error;
+    }
   }
 }
 

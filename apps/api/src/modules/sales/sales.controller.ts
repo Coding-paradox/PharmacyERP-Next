@@ -40,8 +40,12 @@ export class SalesController {
   @ApiOperation({ summary: 'Créer une vente' })
   @ApiResponse({ status: 201, description: 'Vente créée avec succès' })
   @ApiResponse({ status: 409, description: 'Stock insuffisant' })
-  async create(@Body() createSaleDto: CreateSaleDto, @Request() req: any) {
-    return this.salesService.create(createSaleDto, req.user.id);
+  async create(
+    @Body() createSaleDto: CreateSaleDto,
+    @Request() req: any,
+    @Tenant() pharmacyId: string,
+  ) {
+    return this.salesService.create(createSaleDto, req.user.id, pharmacyId);
   }
 
   @Get()

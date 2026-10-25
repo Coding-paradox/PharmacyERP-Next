@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   Logger,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '@pharmacy/database';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -18,8 +19,12 @@ export class UsersService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createUserDto: CreateUserDto) {
-    const { email, password, firstName, lastName, phone, role, isActive, pharmacyId } = createUserDto;
+  async create(createUserDto: CreateUserDto, pharmacyId: string, actorRole: string) {
+    const { email, password, firstName, lastName, phone, role, isActive } = createUserDto;
+
+    if (role === 'ADMIN' && actorRole !== 'ADMIN') {
+      throw new ForbiddenException('Seul un administrateur peut créer un autre administrateur.');
+    }
 
     const existing = await this.prisma.user.findFirst({
       where: {

@@ -13,6 +13,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 
+export interface ActorContext {
+  id: string;
+  role: string;
+}
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -26,9 +31,11 @@ export class UsersService {
       throw new ForbiddenException('Seul un administrateur peut créer un autre administrateur.');
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const existing = await this.prisma.user.findFirst({
       where: {
-        email,
+        email: normalizedEmail,
         pharmacyId,
       },
     });
@@ -42,12 +49,12 @@ export class UsersService {
     try {
       return await this.prisma.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           password: hashedPassword,
           firstName,
           lastName,
           phone: phone || null,
-          role: role || 'VIEWER',
+          role: (role as any) || 'VIEWER',
           isActive: isActive !== undefined ? isActive : true,
           pharmacyId,
         },
@@ -64,8 +71,11 @@ export class UsersService {
         },
       });
     } catch (error: any) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Un utilisateur avec cet email existe déjà dans cette pharmacie.');
+      }
       this.logger.error(`Failed to create user: ${error.message}`);
-      throw new InternalServerErrorException('Erreur lors de la création de l\'utilisateur');
+      throw new InternalServerErrorException("Erreur lors de la création de l'utilisateur");
     }
   }
 
@@ -74,11 +84,12 @@ export class UsersService {
       pharmacyId,
     };
 
-    if (search) {
+    if (search?.trim()) {
+      const term = search.trim();
       where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: term, mode: 'insensitive' } },
+        { firstName: { contains: term, mode: 'insensitive' } },
+        { lastName: { contains: term, mode: 'insensitive' } },
       ];
     }
 
@@ -157,10 +168,23 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, pharmacyId: string, updateUserDto: UpdateUserDto) {
-    await this.findOne(id, pharmacyId);
+  async update(id: string, pharmacyId: string, updateUserDto: UpdateUserDto, actor?: ActorContext) {
+    const target = await this.findOne(id, pharmacyId);
 
     const { email, password, firstName, lastName, phone, role, isActive } = updateUserDto;
+
+    if (role !== undefined && role !== target.role) {
+      if (actor?.id === id) {
+        throw new BadRequestException('Vous ne pouvez pas modifier votre propre rôle.');
+      }
+      if ((role === 'ADMIN' || target.role === 'ADMIN') && actor?.role !== 'ADMIN') {
+        throw new ForbiddenException("Seul un administrateur peut modifier un rôle ADMIN.");
+      }
+    }
+
+    if (isActive === false && actor?.id === id) {
+      throw new BadRequestException('Vous ne pouvez pas désactiver votre propre compte.');
+    }
 
     const data: any = {
       firstName,
@@ -171,9 +195,10 @@ export class UsersService {
     };
 
     if (email) {
+      const normalizedEmail = email.trim().toLowerCase();
       const existing = await this.prisma.user.findFirst({
         where: {
-          email,
+          email: normalizedEmail,
           pharmacyId,
           NOT: { id },
         },
@@ -182,7 +207,7 @@ export class UsersService {
       if (existing) {
         throw new ConflictException('Cet email est déjà utilisé par un autre utilisateur.');
       }
-      data.email = email;
+      data.email = normalizedEmail;
     }
 
     if (password) {
@@ -207,13 +232,23 @@ export class UsersService {
         },
       });
     } catch (error: any) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Cet email est déjà utilisé par un autre utilisateur.');
+      }
       this.logger.error(`Failed to update user: ${error.message}`);
-      throw new InternalServerErrorException('Erreur lors de la mise à jour de l\'utilisateur');
+      throw new InternalServerErrorException("Erreur lors de la mise à jour de l'utilisateur");
     }
   }
 
-  async remove(id: string, pharmacyId: string) {
-    await this.findOne(id, pharmacyId);
+  async remove(id: string, pharmacyId: string, actor?: ActorContext) {
+    const target = await this.findOne(id, pharmacyId);
+
+    if (actor?.id === id) {
+      throw new BadRequestException('Vous ne pouvez pas supprimer votre propre compte.');
+    }
+    if (target.role === 'ADMIN' && actor?.role !== 'ADMIN') {
+      throw new ForbiddenException('Seul un administrateur peut supprimer un administrateur.');
+    }
 
     try {
       await this.prisma.user.delete({
@@ -222,7 +257,7 @@ export class UsersService {
       return { success: true, message: 'Utilisateur supprimé avec succès' };
     } catch (error: any) {
       this.logger.error(`Failed to delete user: ${error.message}`);
-      throw new InternalServerErrorException('Erreur lors de la suppression de l\'utilisateur');
+      throw new InternalServerErrorException("Erreur lors de la suppression de l'utilisateur");
     }
   }
 }

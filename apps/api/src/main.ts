@@ -1,14 +1,9 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
-import {
-  ValidationPipe,
-  Logger,
-  HttpException,
-  HttpStatus,
-  RequestMethod,
-} from '@nestjs/common';
+import { ValidationPipe, Logger, RequestMethod } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -23,6 +18,7 @@ async function bootstrap() {
     origin: configuredOrigins.includes('*') ? '*' : configuredOrigins,
     credentials: !configuredOrigins.includes('*'),
   });
+
   app.setGlobalPrefix('api/v1', {
     exclude: [{ path: '/', method: RequestMethod.GET }],
   });
@@ -35,28 +31,7 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalFilters({
-    catch: (exception: any, host: any) => {
-      const ctx = host.switchToHttp();
-      const response = ctx.getResponse();
-      const status =
-        exception instanceof HttpException
-          ? exception.getStatus()
-          : HttpStatus.INTERNAL_SERVER_ERROR;
-      const exceptionResponse =
-        exception instanceof HttpException ? exception.getResponse() : null;
-      const message =
-        typeof exceptionResponse === 'object' && exceptionResponse !== null
-          ? (exceptionResponse as { message?: string | string[] }).message
-          : exception.message;
-
-      response.status(status).json({
-        statusCode: status,
-        message: message || 'Internal server error',
-        ...(process.env.NODE_ENV !== 'production' && { stack: exception.stack }),
-      });
-    },
-  } as any);
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   const port = process.env.PORT || 3001;
   await app.listen(port);

@@ -43,13 +43,25 @@ export function UnitForm() {
     formState: { errors, isSubmitting },
   } = useForm<UnitFormData>({
     resolver: zodResolver(unitSchema),
+    defaultValues: {
+      name: '',
+      symbol: '',
+    },
   });
 
-  const { data: unit, isLoading } = useQuery({
+  const { data: unit, isLoading, error } = useQuery({
     queryKey: ['unit', id],
     queryFn: () => unitsService.findOne(id!),
     enabled: isEdit,
+    retry: false,
   });
+
+  // Rediriger si l'unité n'existe pas
+  useEffect(() => {
+    if (isEdit && error) {
+      navigate('/units');
+    }
+  }, [isEdit, error, navigate]);
 
   useEffect(() => {
     if (unit) {
@@ -131,6 +143,7 @@ export function UnitForm() {
                 type="text"
                 {...register('name')}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-teal-600"
+                placeholder="Ex: Comprimé, Gélule, Sirop..."
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
@@ -145,6 +158,7 @@ export function UnitForm() {
                 type="text"
                 {...register('symbol')}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-teal-600"
+                placeholder="Ex: cp, gel, Sir..."
               />
             </div>
           </div>
@@ -154,7 +168,7 @@ export function UnitForm() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:opacity-50"
+            className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Enregistrement...' : isEdit ? 'Mettre à jour' : 'Créer'}
           </button>

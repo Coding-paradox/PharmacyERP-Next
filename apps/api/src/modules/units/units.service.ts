@@ -16,8 +16,8 @@ export class UnitsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createUnitDto: CreateUnitDto) {
-    const { name, symbol, pharmacyId } = createUnitDto;
+  async create(createUnitDto: CreateUnitDto, pharmacyId: string) {
+    const { name, symbol } = createUnitDto;
 
     try {
       const existing = await this.prisma.unit.findFirst({

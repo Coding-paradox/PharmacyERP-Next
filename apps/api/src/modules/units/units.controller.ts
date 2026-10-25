@@ -39,8 +39,11 @@ export class UnitsController {
   @ApiOperation({ summary: 'Créer une nouvelle unité' })
   @ApiResponse({ status: 201, description: 'Unité créée avec succès' })
   @ApiResponse({ status: 409, description: 'Une unité avec ce nom existe déjà' })
-  async create(@Body() createUnitDto: CreateUnitDto) {
-    return this.unitsService.create(createUnitDto);
+  async create(
+    @Body() createUnitDto: CreateUnitDto,
+    @Tenant() pharmacyId: string,
+  ) {
+    return this.unitsService.create(createUnitDto, pharmacyId);
   }
 
   @Get()

@@ -3,6 +3,8 @@ import {
   NotFoundException,
   InternalServerErrorException,
   Logger,
+  ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '@pharmacy/database';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
@@ -96,37 +98,43 @@ export class InventoryService {
   async adjustStock(adjustStockDto: AdjustStockDto, userId: string, pharmacyId: string) {
     const { medicineId, quantity, movementType, notes } = adjustStockDto;
 
-    const medicine = await this.prisma.medicine.findFirst({
-      where: {
-        id: medicineId,
-        pharmacyId,
-        deletedAt: null,
-      },
-    });
-
-    if (!medicine) {
-      throw new NotFoundException('Médicament non trouvé.');
-    }
-
-    const newStock = movementType === 'ADJUSTMENT'
-      ? quantity
-      : movementType === 'DAMAGED' || movementType === 'EXPIRED'
-        ? Math.max(0, medicine.stock - quantity)
-        : medicine.stock + quantity;
-
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const updatedMedicine = await tx.medicine.update({
-          where: { id: medicineId },
+        const medicine = await tx.medicine.findFirst({
+          where: { id: medicineId, pharmacyId, deletedAt: null },
+        });
+        if (!medicine) {
+          throw new NotFoundException('Médicament non trouvé dans cette pharmacie.');
+        }
+
+        if ((movementType === 'DAMAGED' || movementType === 'EXPIRED') && quantity > medicine.stock) {
+          throw new BadRequestException('La quantité à retirer dépasse le stock disponible.');
+        }
+
+        const newStock = movementType === 'ADJUSTMENT'
+          ? quantity
+          : movementType === 'DAMAGED' || movementType === 'EXPIRED'
+            ? medicine.stock - quantity
+            : medicine.stock + quantity;
+
+        // Compare-and-set : évite d'écraser une modification concurrente du stock.
+        const changed = await tx.medicine.updateMany({
+          where: { id: medicineId, pharmacyId, deletedAt: null, stock: medicine.stock },
           data: { stock: newStock },
         });
+        if (changed.count !== 1) {
+          throw new ConflictException('Le stock a changé simultanément. Rechargez la page puis réessayez.');
+        }
 
+        const updatedMedicine = await tx.medicine.findFirstOrThrow({
+          where: { id: medicineId, pharmacyId },
+        });
         const movement = await tx.inventoryMovement.create({
           data: {
             medicineId,
             pharmacyId,
             userId,
-            quantity: movementType === 'ADJUSTMENT' ? quantity : quantity,
+            quantity: newStock - medicine.stock,
             previousStock: medicine.stock,
             newStock,
             movementType,
@@ -139,31 +147,31 @@ export class InventoryService {
       });
     } catch (error: any) {
       this.logger.error(`Failed to adjust stock: ${error.message}`);
-      throw new InternalServerErrorException('Erreur lors de l\'ajustement du stock');
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException("Erreur lors de l'ajustement du stock");
     }
   }
 
   async getLowStockAlerts(pharmacyId: string) {
-    return this.prisma.medicine.findMany({
-      where: {
-        pharmacyId,
-        deletedAt: null,
-        isActive: true,
-        stock: {
-          lte: this.prisma.medicine.fields.minStock,
-        },
-      },
+    const medicines = await this.prisma.medicine.findMany({
+      where: { pharmacyId, deletedAt: null, isActive: true },
       select: {
         id: true,
         code: true,
         name: true,
         stock: true,
         minStock: true,
-        category: {
-          select: { name: true },
-        },
+        category: { select: { name: true } },
       },
       orderBy: { stock: 'asc' },
     });
+
+    return medicines.filter((medicine) => medicine.stock <= medicine.minStock);
   }
 }

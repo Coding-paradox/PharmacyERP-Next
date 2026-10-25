@@ -14,7 +14,15 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors();
+  const configuredOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3002')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: configuredOrigins.includes('*') ? '*' : configuredOrigins,
+    credentials: true,
+  });
   app.setGlobalPrefix('api/v1', {
     exclude: [{ path: '/', method: RequestMethod.GET }],
   });

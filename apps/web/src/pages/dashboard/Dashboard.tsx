@@ -28,7 +28,7 @@ export function Dashboard() {
     queryFn: () => salesService.findAll(),
   });
 
-  const { data: inventory, isLoading: inventoryLoading } = useQuery({
+  const { isLoading: inventoryLoading } = useQuery({
     queryKey: ['inventory-summary'],
     queryFn: () => inventoryService.getSummary(),
   });
@@ -49,7 +49,6 @@ export function Dashboard() {
   }
 
   const totalMedicines = medicines?.data?.length || 0;
-  const totalSales = sales?.length || 0;
   const totalRevenue = stats?.totalRevenue || 0;
   const todayRevenue = stats?.todayRevenue || 0;
   const todaySalesCount = stats?.todaySalesCount || 0;

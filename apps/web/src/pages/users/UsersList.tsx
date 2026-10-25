@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, UserCircle, Mail, Phone, Badge } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, UserCircle, Mail, Phone } from 'lucide-react';
 import { usersService } from '../../services/users.service';
 import { useAuth } from '../../contexts/AuthContext';
 

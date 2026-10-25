@@ -101,64 +101,67 @@ export function SuppliersList() {
                 </td>
               </tr>
             ) : (
-              suppliers?.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-teal-600" />
-                      {s.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    <div className="flex flex-col gap-1">
-                      {s.email && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Mail className="h-3 w-3 text-gray-400" />
-                          {s.email}
-                        </div>
-                      )}
-                      {s.phone && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Phone className="h-3 w-3 text-gray-400" />
-                          {s.phone}
-                        </div>
-                      )}
-                      {s.address && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <MapPin className="h-3 w-3 text-gray-400" />
-                          {s.address}
-                        </div>
-                      )}
-                      {!s.email && !s.phone && !s.address && '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-600">
-                    {s._count?.purchases || 0}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/suppliers/${s.id}/edit`}
-                        className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(s.id)}
-                        className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
-                        disabled={s._count?.purchases > 0}
-                        title={
-                          s._count?.purchases > 0
-                            ? `Utilisé par ${s._count.purchases} commande(s) d'achat`
-                            : ''
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              suppliers?.map((s) => {
+                const purchasesCount = s._count?.purchases ?? 0;
+                return (
+                  <tr key={s.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-teal-600" />
+                        {s.name}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      <div className="flex flex-col gap-1">
+                        {s.email && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Mail className="h-3 w-3 text-gray-400" />
+                            {s.email}
+                          </div>
+                        )}
+                        {s.phone && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Phone className="h-3 w-3 text-gray-400" />
+                            {s.phone}
+                          </div>
+                        )}
+                        {s.address && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <MapPin className="h-3 w-3 text-gray-400" />
+                            {s.address}
+                          </div>
+                        )}
+                        {!s.email && !s.phone && !s.address && '-'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-600">
+                      {purchasesCount}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/suppliers/${s.id}/edit`}
+                          className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(s.id)}
+                          className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={purchasesCount > 0}
+                          title={
+                            purchasesCount > 0
+                              ? `Utilisé par ${purchasesCount} commande(s) d'achat`
+                              : ''
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

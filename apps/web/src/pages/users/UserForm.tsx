@@ -4,35 +4,55 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { usersService } from '../../services/users.service';
-import { useAuth } from '../../contexts/AuthContext';
+import {
+  usersService,
+  type CreateUserInput,
+  type UpdateUserInput,
+} from '../../services/users.service';
 
 const userSchema = z.object({
   email: z.string().email('Email invalide'),
-  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères').optional(),
+  password: z
+    .string()
+    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+    .optional()
+    .or(z.literal('')),
   firstName: z.string().min(1, 'Le prénom est requis'),
   lastName: z.string().min(1, 'Le nom est requis'),
   phone: z.string().optional(),
-  role: z.string().default('VIEWER'),
+  role: z.string().min(1).default('VIEWER'),
   isActive: z.boolean().default(true),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
 
+const roleLabels: Record<string, string> = {
+  ADMIN: 'Administrateur',
+  MANAGER: 'Gestionnaire',
+  PHARMACIST: 'Pharmacien',
+  CASHIER: 'Caissier',
+  VIEWER: 'Observateur',
+};
+
 export function UserForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
   const isEdit = !!id;
 
   const {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
+      email: '',
+      password: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
       isActive: true,
       role: 'VIEWER',
     },
@@ -48,6 +68,7 @@ export function UserForm() {
     if (user) {
       reset({
         email: user.email,
+        password: '',
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone || '',
@@ -58,14 +79,14 @@ export function UserForm() {
   }, [user, reset]);
 
   const createMutation = useMutation({
-    mutationFn: usersService.create,
+    mutationFn: (data: CreateUserInput) => usersService.create(data),
     onSuccess: () => {
       navigate('/users');
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateUserInput }) =>
       usersService.update(id, data),
     onSuccess: () => {
       navigate('/users');
@@ -73,22 +94,33 @@ export function UserForm() {
   });
 
   const onSubmit = async (data: UserFormData) => {
-    const payload = {
-      ...data,
-      pharmacyId: currentUser?.pharmacyId || '',
-    };
+    const { password, ...rest } = data;
 
-    if (isEdit && id) {
-      if (!data.password) {
-        delete payload.password;
+    try {
+      if (isEdit && id) {
+        const payload: UpdateUserInput = { ...rest };
+        if (password) {
+          payload.password = password;
+        }
+        await updateMutation.mutateAsync({ id, data: payload });
+      } else {
+        if (!password) {
+          setError('password', {
+            type: 'required',
+            message: 'Le mot de passe est requis pour la création.',
+          });
+          return;
+        }
+        const payload: CreateUserInput = { ...rest, password };
+        await createMutation.mutateAsync(payload);
       }
-      await updateMutation.mutateAsync({ id, data: payload });
-    } else {
-      if (!data.password) {
-        alert('Le mot de passe est requis pour la création.');
-        return;
-      }
-      await createMutation.mutateAsync(payload);
+    } catch (err: any) {
+      const message = err?.response?.data?.message;
+      alert(
+        Array.isArray(message)
+          ? message.join('\n')
+          : message || "Erreur lors de l'enregistrement de l'utilisateur",
+      );
     }
   };
 
@@ -103,18 +135,10 @@ export function UserForm() {
     );
   }
 
-  const roleLabels: Record<string, string> = {
-    ADMIN: 'Administrateur',
-    MANAGER: 'Gestionnaire',
-    PHARMACIST: 'Pharmacien',
-    CASHIER: 'Caissier',
-    VIEWER: 'Observateur',
-  };
-
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900">
-        {isEdit ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur'}
+        {isEdit ? "Modifier l'utilisateur" : 'Nouvel utilisateur'}
       </h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">

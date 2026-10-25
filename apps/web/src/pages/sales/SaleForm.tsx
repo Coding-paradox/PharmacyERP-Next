@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, ShoppingCart, Package, Calculator, Users } from 'lucide-react';
+import { Plus, Trash2, Package, Calculator, Users } from 'lucide-react';
 import { salesService } from '../../services/sales.service';
 import { medicinesService } from '../../services/medicines.service';
 import { customersService } from '../../services/customers.service';
@@ -46,7 +45,6 @@ export function SaleForm() {
     handleSubmit,
     watch,
     setValue,
-    getValues,
     formState: { errors, isSubmitting },
   } = useForm<SaleFormData>({
     resolver: zodResolver(saleSchema),
@@ -64,6 +62,11 @@ export function SaleForm() {
     control,
     name: 'items',
   });
+
+  const items = watch('items');
+  const discount = watch('discount') || 0;
+  const tax = watch('tax') || 0;
+  const currency = watch('currency') || 'CDF';
 
   const { data: medicines, isLoading: isLoadingMedicines } = useQuery({
     queryKey: ['medicines'],
@@ -110,10 +113,6 @@ export function SaleForm() {
     }
   };
 
-  const items = watch('items');
-  const discount = watch('discount') || 0;
-  const tax = watch('tax') || 0;
-  const currency = watch('currency') || 'CDF';
   const subtotal = items.reduce((sum, item) => {
     const itemDiscount = item.discount || 0;
     return sum + ((item.quantity || 0) * (item.unitPrice || 0) - itemDiscount);

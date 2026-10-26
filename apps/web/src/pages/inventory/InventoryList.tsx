@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, AlertTriangle, Package, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, AlertTriangle, Package, TrendingUp } from 'lucide-react';
 import { inventoryService } from '../../services/inventory.service';
 
 export function InventoryList() {

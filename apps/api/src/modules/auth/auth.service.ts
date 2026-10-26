@@ -235,14 +235,17 @@ export class AuthService {
     });
 
     if (!resetToken) {
+      this.logger.warn(`Reset échoué : token introuvable (longueur ${token?.length ?? 0})`);
       throw new BadRequestException('Token invalide ou expiré.');
     }
 
     if (resetToken.usedAt) {
+      this.logger.warn(`Reset échoué : token déjà utilisé (id ${resetToken.id})`);
       throw new BadRequestException('Ce token a déjà été utilisé.');
     }
 
     if (resetToken.expiresAt < new Date()) {
+      this.logger.warn(`Reset échoué : token expiré (id ${resetToken.id})`);
       throw new BadRequestException('Le token a expiré.');
     }
 
@@ -259,6 +262,7 @@ export class AuthService {
       }),
     ]);
 
+    this.logger.log(`Mot de passe réinitialisé pour ${resetToken.user.email}`);
     return { message: 'Mot de passe réinitialisé avec succès.' };
   }
 }

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -61,6 +60,10 @@ export function PurchaseForm() {
     name: 'items',
   });
 
+  const items = watch('items');
+  const tax = watch('tax') || 0;
+  const currency = watch('currency') || 'CDF';
+
   const { data: medicines, isLoading: isLoadingMedicines } = useQuery({
     queryKey: ['medicines'],
     queryFn: () => medicinesService.findAll(),
@@ -106,9 +109,6 @@ export function PurchaseForm() {
     }
   };
 
-  const items = watch('items');
-  const tax = watch('tax') || 0;
-  const currency = watch('currency') || 'CDF';
   const subtotal = items.reduce((sum, item) => {
     return sum + (item.quantity || 0) * (item.unitPrice || 0);
   }, 0);

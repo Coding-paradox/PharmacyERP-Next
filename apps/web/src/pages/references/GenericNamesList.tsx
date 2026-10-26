@@ -3,12 +3,10 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, Pill } from 'lucide-react';
 import { genericNamesService } from '../../services/generic-names.service';
-import { useAuth } from '../../contexts/AuthContext';
 
 export function GenericNamesList() {
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   const { data: items, isLoading, error } = useQuery({
     queryKey: ['generic-names', search],

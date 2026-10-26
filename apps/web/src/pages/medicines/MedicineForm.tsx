@@ -94,7 +94,6 @@ export function MedicineForm() {
     handleSubmit,
     reset,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<MedicineFormData>({
     resolver: zodResolver(medicineSchema),

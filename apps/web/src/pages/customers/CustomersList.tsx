@@ -89,64 +89,63 @@ export function CustomersList() {
                 </td>
               </tr>
             ) : (
-              customers?.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-teal-600" />
-                      {c.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    <div className="flex flex-col gap-1">
-                      {c.email && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Mail className="h-3 w-3 text-gray-400" />
-                          {c.email}
-                        </div>
-                      )}
-                      {c.phone && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Phone className="h-3 w-3 text-gray-400" />
-                          {c.phone}
-                        </div>
-                      )}
-                      {c.address && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <MapPin className="h-3 w-3 text-gray-400" />
-                          {c.address}
-                        </div>
-                      )}
-                      {!c.email && !c.phone && !c.address && '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-600">
-                    {c._count?.sales || 0}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/customers/${c.id}/edit`}
-                        className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(c.id)}
-                        className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
-                        disabled={c._count?.sales > 0}
-                        title={
-                          c._count?.sales > 0
-                            ? `Utilisé par ${c._count.sales} vente(s)`
-                            : ''
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              customers?.map((c) => {
+                const salesCount = c._count?.sales ?? 0;
+                return (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-teal-600" />
+                        {c.name}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      <div className="flex flex-col gap-1">
+                        {c.email && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Mail className="h-3 w-3 text-gray-400" />
+                            {c.email}
+                          </div>
+                        )}
+                        {c.phone && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Phone className="h-3 w-3 text-gray-400" />
+                            {c.phone}
+                          </div>
+                        )}
+                        {c.address && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <MapPin className="h-3 w-3 text-gray-400" />
+                            {c.address}
+                          </div>
+                        )}
+                        {!c.email && !c.phone && !c.address && '-'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-600">
+                      {salesCount}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/customers/${c.id}/edit`}
+                          className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(c.id)}
+                          className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={salesCount > 0}
+                          title={salesCount > 0 ? `Utilisé par ${salesCount} vente(s)` : ''}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

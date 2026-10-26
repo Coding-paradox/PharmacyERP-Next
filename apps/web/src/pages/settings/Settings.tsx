@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { settingsService } from '../../services/settings.service';
-import { Building2, Users, Pill, ShoppingCart, Package, Truck, RefreshCw } from 'lucide-react';
+import { Building2, Users, Pill, ShoppingCart, Package, Truck } from 'lucide-react';
 
 const pharmacySchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
@@ -58,7 +58,7 @@ export function Settings() {
 
   const updateMutation = useMutation({
     mutationFn: settingsService.updatePharmacySettings,
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pharmacy-settings'] });
       setIsEditing(false);
       setSuccessMessage('Paramètres mis à jour avec succès');

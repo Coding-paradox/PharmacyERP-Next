@@ -18,6 +18,26 @@ export interface User {
   };
 }
 
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateUserInput {
+  email?: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  role?: string;
+  isActive?: boolean;
+}
+
 class UsersService {
   async findAll(search?: string): Promise<User[]> {
     const response = await api.get('/users', { params: { search } });
@@ -29,32 +49,12 @@ class UsersService {
     return response.data;
   }
 
-  async create(data: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    phone?: string;
-    role?: string;
-    isActive?: boolean;
-    pharmacyId: string;
-  }): Promise<User> {
+  async create(data: CreateUserInput): Promise<User> {
     const response = await api.post('/users', data);
     return response.data;
   }
 
-  async update(
-    id: string,
-    data: {
-      email?: string;
-      password?: string;
-      firstName?: string;
-      lastName?: string;
-      phone?: string;
-      role?: string;
-      isActive?: boolean;
-    },
-  ): Promise<User> {
+  async update(id: string, data: UpdateUserInput): Promise<User> {
     const response = await api.patch(`/users/${id}`, data);
     return response.data;
   }

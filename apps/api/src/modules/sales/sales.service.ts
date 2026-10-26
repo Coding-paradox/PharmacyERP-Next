@@ -27,7 +27,7 @@ export class SalesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createSaleDto: CreateSaleDto, userId: string) {
+  async create(createSaleDto: CreateSaleDto, userId: string, pharmacyId: string) {
     const {
       customerName,
       customerPhone,
@@ -37,7 +37,6 @@ export class SalesService {
       currency = Currency.CDF,
       notes,
       items,
-      pharmacyId,
     } = createSaleDto;
 
     if (!items || items.length === 0) {
@@ -59,8 +58,8 @@ export class SalesService {
         }[] = [];
 
         for (const item of items) {
-          const medicine = await tx.medicine.findUnique({
-            where: { id: item.medicineId },
+          const medicine = await tx.medicine.findFirst({
+            where: { id: item.medicineId, pharmacyId, deletedAt: null },
           });
 
           if (!medicine) {
@@ -85,7 +84,7 @@ export class SalesService {
           // mise à jour" : deux caissiers vendant le même médicament en même
           // temps pouvaient tous les deux réussir alors qu'un seul aurait dû).
           const decrementResult = await tx.medicine.updateMany({
-            where: { id: item.medicineId, stock: { gte: item.quantity } },
+            where: { id: item.medicineId, pharmacyId, deletedAt: null, stock: { gte: item.quantity } },
             data: { stock: { decrement: item.quantity } },
           });
 
@@ -99,7 +98,7 @@ export class SalesService {
           // transaction) pour que l'historique de mouvement soit exact,
           // même en cas de forte concurrence.
           const updatedMedicine = await tx.medicine.findUniqueOrThrow({
-            where: { id: item.medicineId },
+            where: { id: item.medicineId, pharmacyId },
             select: { stock: true },
           });
 
@@ -142,6 +141,9 @@ export class SalesService {
         const netAmount = totalAmount;
         const discountAmount = discount || 0;
         const taxAmount = tax || 0;
+        if (discountAmount > netAmount) {
+          throw new BadRequestException('La remise globale ne peut pas dépasser le montant net de la vente.');
+        }
         const finalTotal = netAmount - discountAmount + taxAmount;
 
         // Créer la vente (le stock a déjà été réservé atomiquement ci-dessus ;

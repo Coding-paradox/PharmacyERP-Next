@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   Logger,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '@pharmacy/database';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
@@ -16,7 +17,7 @@ export class PurchasesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPurchaseDto: CreatePurchaseDto, userId: string) {
+  async create(createPurchaseDto: CreatePurchaseDto, userId: string, pharmacyId: string) {
     const {
       supplierId,
       supplierName,
@@ -25,7 +26,6 @@ export class PurchasesService {
       currency = Currency.CDF,
       notes,
       items,
-      pharmacyId,
     } = createPurchaseDto;
 
     if (!items || items.length === 0) {
@@ -38,8 +38,8 @@ export class PurchasesService {
         const purchaseItems = [];
 
         for (const item of items) {
-          const medicine = await tx.medicine.findUnique({
-            where: { id: item.medicineId },
+          const medicine = await tx.medicine.findFirst({
+            where: { id: item.medicineId, pharmacyId, deletedAt: null },
             select: { id: true, name: true, costCurrency: true },
           });
 
@@ -65,6 +65,11 @@ export class PurchasesService {
             expiryDate: item.expiryDate || null,
             batchNumber: item.batchNumber || null,
           });
+        }
+
+        if (supplierId) {
+          const supplier = await tx.supplier.findFirst({ where: { id: supplierId, pharmacyId }, select: { id: true } });
+          if (!supplier) throw new NotFoundException('Fournisseur non trouvé dans cette pharmacie.');
         }
 
         const netAmount = totalAmount;
@@ -278,11 +283,15 @@ export class PurchasesService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        // Mettre à jour le statut
-        const updatedPurchase = await tx.purchase.update({
-          where: { id },
+        // Transition atomique : une seule requête concurrente peut réceptionner la commande.
+        const transition = await tx.purchase.updateMany({
+          where: { id, pharmacyId, status: OrderStatus.PENDING },
           data: { status: OrderStatus.PAID },
         });
+        if (transition.count !== 1) {
+          throw new ConflictException('Cette commande a déjà été réceptionnée ou modifiée.');
+        }
+        const updatedPurchase = await tx.purchase.findFirstOrThrow({ where: { id, pharmacyId } });
 
         // Mettre à jour les stocks
         for (const item of purchase.purchaseItems) {
@@ -293,8 +302,8 @@ export class PurchasesService {
           // correctif, previousStock était toujours codé en dur à 0 et
           // newStock reprenait juste la quantité reçue, ce qui rendait tout
           // l'historique d'audit faux dès la 2e livraison d'un médicament.
-          const medicineBeforeUpdate = await tx.medicine.findUniqueOrThrow({
-            where: { id: item.medicineId },
+          const medicineBeforeUpdate = await tx.medicine.findFirstOrThrow({
+            where: { id: item.medicineId, pharmacyId, deletedAt: null },
             select: { stock: true },
           });
 
@@ -333,6 +342,7 @@ export class PurchasesService {
       });
     } catch (error: any) {
       this.logger.error(`Failed to receive purchase: ${error.message}`);
+      if (error instanceof ConflictException || error instanceof BadRequestException || error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException('Erreur lors de la réception de la commande');
     }
   }

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsNumber, IsString, IsOptional, Min, IsEnum } from 'class-validator';
+import { IsUUID, IsNumber, IsString, IsOptional, Min, IsEnum, IsInt } from 'class-validator';
 import { InventoryMovementType } from '@prisma/client';
 
 export class AdjustStockDto {
@@ -9,7 +9,8 @@ export class AdjustStockDto {
 
   @ApiProperty({ example: 10 })
   @IsNumber()
-  @Min(1)
+  @IsInt()
+  @Min(0)
   quantity!: number;
 
   @ApiProperty({ enum: InventoryMovementType })

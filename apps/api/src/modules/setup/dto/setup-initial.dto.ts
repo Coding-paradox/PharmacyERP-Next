@@ -62,13 +62,13 @@ export class AdminSetupDto {
   @MaxLength(150)
   email!: string;
 
-  @ApiProperty({ example: 'Admin123!' })
+  @ApiProperty({ example: 'Admin123' })
   @IsStrongPassword({
     minLength: 8,
     minLowercase: 1,
     minUppercase: 1,
     minNumbers: 1,
-    minSymbols: 1,
+    minSymbols: 0,
   })
   @MaxLength(128)
   password!: string;

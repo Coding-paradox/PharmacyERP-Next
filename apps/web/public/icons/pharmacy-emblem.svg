@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 620" fill="none" role="img" aria-label="Serpent enroulé autour d'une coupe pharmaceutique">
+  <defs>
+    <linearGradient id="bronze" x1="132" y1="82" x2="421" y2="545" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff2c2"/>
+      <stop offset=".18" stop-color="#c78b3f"/>
+      <stop offset=".38" stop-color="#f6d38b"/>
+      <stop offset=".62" stop-color="#805022"/>
+      <stop offset=".83" stop-color="#e6b869"/>
+      <stop offset="1" stop-color="#70451f"/>
+    </linearGradient>
+    <linearGradient id="cup" x1="155" y1="269" x2="400" y2="388" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f4d28c"/>
+      <stop offset=".3" stop-color="#a9682d"/>
+      <stop offset=".56" stop-color="#e9b968"/>
+      <stop offset="1" stop-color="#71431d"/>
+    </linearGradient>
+    <linearGradient id="inside" x1="160" y1="258" x2="388" y2="275" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5d7871"/>
+      <stop offset=".5" stop-color="#d1dfd6"/>
+      <stop offset="1" stop-color="#536a61"/>
+    </linearGradient>
+    <filter id="shadow" x="52" y="32" width="456" height="575" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+  <ellipse cx="282" cy="560" rx="170" ry="24" fill="#052e2b" opacity=".18" filter="url(#shadow)"/>
+  <!-- serpent body, sculpted as a thick bronze coil -->
+  <path d="M336 111c-24-14-55-11-72 8-18 19-17 45 4 60 23 17 61 17 76 40 14 23-4 51-30 63-31 14-76 9-101 31-24 20-16 49 11 62 32 15 85 10 108 31 22 20 10 47-17 60-33 16-85 10-109 33-22 21-10 47 17 58 28 11 67 8 94 20" stroke="#57371d" stroke-width="37" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M336 111c-24-14-55-11-72 8-18 19-17 45 4 60 23 17 61 17 76 40 14 23-4 51-30 63-31 14-76 9-101 31-24 20-16 49 11 62 32 15 85 10 108 31 22 20 10 47-17 60-33 16-85 10-109 33-22 21-10 47 17 58 28 11 67 8 94 20" stroke="url(#bronze)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- scale highlights -->
+  <g stroke="#fff0c5" stroke-linecap="round" stroke-width="2.5" opacity=".58">
+    <path d="m278 129 13 8m-23 13 14 7m34 13 14-4m-2 36 14-8m-15 39 16-3m-66 25 14 8m-48 22 16 6m-22 37 16 5m39 12 17-4m37 26 15-7m-44 47 16-5m-76 12 16 7m-28 34 16 5m34 15 15-4m25 32 15-5m-73 5 14 7"/>
+  </g>
+  <!-- serpent head -->
+  <path d="M326 111c-10-10-13-23-7-36 10-21 38-32 61-24 18 6 28 21 26 38-3 17-18 29-36 32l-24 4-20-14Z" fill="url(#bronze)" stroke="#6c451f" stroke-width="5"/>
+  <path d="M370 92c13 0 24 4 36 13-12 9-25 11-39 7" stroke="#68421f" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="369" cy="75" rx="4" ry="5" fill="#082f2d"/>
+  <path d="M315 97c-10 8-16 19-17 31" stroke="#fff0c5" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+  <!-- broad medicinal cup -->
+  <path d="M145 260c5 55 15 91 34 112 17 18 39 26 83 26s66-8 83-26c19-21 29-57 34-112H145Z" fill="url(#cup)" stroke="#70461f" stroke-width="8"/>
+  <ellipse cx="262" cy="260" rx="119" ry="29" fill="url(#inside)" stroke="#f3d28d" stroke-width="10"/>
+  <ellipse cx="262" cy="263" rx="94" ry="14" fill="#143b37" opacity=".54"/>
+  <path d="M236 399v41m52-41v41m-69 0h86l17 25H200l19-25Z" fill="url(#bronze)" stroke="#70461f" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M172 478c-25 17-44 35-45 52-2 17 19 28 54 32 47 6 132 6 179 0 35-4 56-15 54-32-1-17-20-35-45-52-38 13-159 13-197 0Z" fill="url(#bronze)" stroke="#70461f" stroke-width="8"/>
+  <ellipse cx="262" cy="533" rx="132" ry="18" fill="none" stroke="#ffe6a8" stroke-width="6" opacity=".8"/>
+  <path d="M159 286c7 34 16 54 29 69m156-69c-7 34-16 54-29 69" stroke="#fff0c5" stroke-width="5" stroke-linecap="round" opacity=".72"/>
+</svg>

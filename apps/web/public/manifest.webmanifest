@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "MULANGO Healthcare",
+  "short_name": "MULANGO HC",
+  "description": "Gestion pharmaceutique : médicaments, achats, ventes et stocks.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f9f8",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/icons/pharmacy.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pharmacy.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

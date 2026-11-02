@@ -15,7 +15,10 @@ export const validationSchema = Joi.object({
   JWT_REFRESH_EXPIRY: Joi.string().default('7d'),
 
   // CORS
-  CORS_ORIGIN: Joi.string().default('*'),
+  CORS_ORIGIN: Joi.string().default('http://localhost:3002,http://127.0.0.1:3002'),
+  VAPID_SUBJECT: Joi.string().default('mailto:admin@pharmacy-erp.com'),
+  VAPID_PUBLIC_KEY: Joi.string().allow('').default(''),
+  VAPID_PRIVATE_KEY: Joi.string().allow('').default(''),
 
   // Rate Limiting
   RATE_LIMIT_TTL: Joi.number().default(60),

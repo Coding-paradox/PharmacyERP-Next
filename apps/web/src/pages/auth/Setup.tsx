@@ -10,14 +10,17 @@ const setupSchema = z.object({
     name: z.string().min(1, 'Le nom de la pharmacie est requis'),
     address: z.string().optional(),
     phone: z.string().optional(),
-    email: z.string().email('Email invalide').optional(),
+    email: z.union([z.string().email('Email invalide'), z.literal('')]).optional(),
     taxId: z.string().optional(),
     timezone: z.string().optional(),
     currency: z.string().optional(),
   }),
   admin: z.object({
     email: z.string().email('Email invalide'),
-    password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
+    password: z
+      .string()
+      .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+      .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Ajoutez une majuscule, une minuscule et un chiffre'),
     firstName: z.string().min(1, 'Le prénom est requis'),
     lastName: z.string().min(1, 'Le nom est requis'),
   }),
@@ -52,7 +55,8 @@ export function Setup() {
       await setup(data);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de l\'initialisation');
+      const message = err.response?.data?.message;
+      setError(Array.isArray(message) ? message.join(', ') : message || 'Erreur lors de l\'initialisation');
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +66,7 @@ export function Setup() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-2xl space-y-8 rounded-lg bg-white p-8 shadow-lg">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-teal-800">PharmacyERP</h1>
+          <h1 className="text-3xl font-bold text-teal-800">MULANGO Healthcare</h1>
           <p className="mt-2 text-sm text-gray-600">Initialisation du système</p>
         </div>
 

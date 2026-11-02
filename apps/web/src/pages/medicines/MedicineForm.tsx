@@ -199,7 +199,11 @@ export function MedicineForm() {
     setServerError(null);
     try {
       if (isEdit && id) {
-        await updateMutation.mutateAsync({ id, data });
+        // La pharmacie est déterminée par le compte authentifié côté API.
+        // Le DTO de mise à jour interdit explicitement pharmacyId.
+        const { pharmacyId, ...updateData } = data;
+        void pharmacyId;
+        await updateMutation.mutateAsync({ id, data: updateData });
       } else {
         await createMutation.mutateAsync(data);
       }

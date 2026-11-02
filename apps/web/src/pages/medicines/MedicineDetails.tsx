@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Edit } from 'lucide-react';
+import { ArrowLeft, Edit, Package } from 'lucide-react';
 import { Currency, medicinesService } from '../../services/medicines.service';
 
 // Fonction pour formater les nombres
@@ -136,6 +136,37 @@ export function MedicineDetails() {
           </div>
         </dl>
       </div>
+
+      <section className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">Lots en stock</h2>
+            <p className="mt-1 text-sm text-gray-500">Prélèvement des lots selon la date de péremption la plus proche (FEFO).</p>
+          </div>
+          <Package className="h-5 w-5 text-teal-700" />
+        </div>
+        {medicine.batches?.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                <tr><th className="px-6 py-3">Numéro de lot</th><th className="px-6 py-3">Péremption</th><th className="px-6 py-3 text-right">Quantité</th><th className="px-6 py-3">État</th></tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {medicine.batches.map((batch) => {
+                  const expired = batch.expiryDate && new Date(batch.expiryDate) < new Date(new Date().setHours(0, 0, 0, 0));
+                  const expiringSoon = batch.expiryDate && !expired && new Date(batch.expiryDate).getTime() - Date.now() < 90 * 86400000;
+                  return <tr key={batch.id}>
+                    <td className="px-6 py-3 font-medium text-gray-900">{batch.batchNumber}</td>
+                    <td className="px-6 py-3 text-gray-600">{batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString('fr-FR') : 'Date inconnue'}</td>
+                    <td className="px-6 py-3 text-right font-semibold text-gray-900">{batch.quantity}</td>
+                    <td className="px-6 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${expired ? 'bg-red-50 text-red-700' : expiringSoon ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{expired ? 'Périmé — vente bloquée' : expiringSoon ? 'Expire bientôt' : 'Disponible'}</span></td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : <div className="px-6 py-10 text-center text-sm text-gray-500">Aucun lot enregistré pour ce médicament.</div>}
+      </section>
     </div>
   );
 }

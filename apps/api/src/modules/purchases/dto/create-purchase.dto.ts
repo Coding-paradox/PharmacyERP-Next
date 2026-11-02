@@ -8,6 +8,8 @@ import {
   IsEnum,
   IsArray,
   ValidateNested,
+  IsDate,
+  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Currency, OrderStatus } from '@prisma/client';
@@ -32,13 +34,14 @@ export class CreatePurchaseItemDto {
   @IsEnum(Currency)
   currency?: Currency;
 
-  @ApiPropertyOptional({ example: '2025-12-31T00:00:00Z' })
-  @IsOptional()
+  @ApiProperty({ example: '2027-12-31T00:00:00Z' })
+  @Type(() => Date)
+  @IsDate()
   expiryDate?: Date;
 
-  @ApiPropertyOptional({ example: 'BATCH-001' })
-  @IsOptional()
+  @ApiProperty({ example: 'BATCH-001' })
   @IsString()
+  @IsNotEmpty()
   batchNumber?: string;
 }
 
@@ -56,6 +59,11 @@ export class CreatePurchaseDto {
   @IsOptional()
   @IsString()
   supplierPhone?: string;
+
+  @ApiPropertyOptional({ example: 'FACT-FOURNISSEUR-2026-1042' })
+  @IsOptional()
+  @IsString()
+  supplierInvoiceNumber?: string;
 
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()

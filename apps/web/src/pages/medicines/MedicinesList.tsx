@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, Upload } from 'lucide-react';
 import { Currency, medicinesService } from '../../services/medicines.service';
+import { MedicineImportDialog } from '../../components/medicines/MedicineImportDialog';
 
 export function MedicinesList() {
   const [search, setSearch] = useState('');
+  const [showImport, setShowImport] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -66,15 +68,12 @@ export function MedicinesList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Médicaments</h1>
-        <Link
-          to="/medicines/new"
-          className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
-        >
-          <Plus className="h-4 w-4" />
-          Nouveau médicament
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="text-2xl font-bold text-gray-900">Médicaments</h1><p className="mt-1 text-sm text-gray-500">Catalogue des produits, codes et prix.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-xl border border-teal-200 bg-white px-4 py-2.5 text-sm font-semibold text-teal-800 shadow-sm transition hover:bg-teal-50"><Upload className="h-4 w-4" />Importer un fichier</button>
+          <Link to="/medicines/new" className="inline-flex items-center gap-2 rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-900"><Plus className="h-4 w-4" />Nouveau médicament</Link>
+        </div>
       </div>
 
       <div className="mt-4 flex items-center gap-4">
@@ -167,6 +166,7 @@ export function MedicinesList() {
           </tbody>
         </table>
       </div>
+      {showImport && <MedicineImportDialog onClose={() => setShowImport(false)} />}
     </div>
   );
 }

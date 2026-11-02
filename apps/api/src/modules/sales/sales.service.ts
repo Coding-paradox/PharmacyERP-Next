@@ -10,6 +10,8 @@ import { PrismaService } from '@pharmacy/database';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { Currency, Prisma, OrderStatus, PaymentMethod } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class SalesService {
@@ -25,7 +27,7 @@ export class SalesService {
   // plutôt qu'une constante en dur, une fois ce comportement validé.
   private readonly MAX_ITEM_DISCOUNT_RATIO = 0.15;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsService) {}
 
   async create(createSaleDto: CreateSaleDto, userId: string, pharmacyId: string) {
     const {
@@ -44,7 +46,7 @@ export class SalesService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const sale = await this.prisma.$transaction(async (tx) => {
         let totalAmount = 0;
         const saleItems = [];
 
@@ -55,6 +57,7 @@ export class SalesService {
           quantity: number;
           previousStock: number;
           newStock: number;
+          allocations: { medicineBatchId: string; quantity: number }[];
         }[] = [];
 
         for (const item of items) {
@@ -94,6 +97,39 @@ export class SalesService {
             );
           }
 
+          // FEFO: lots dont la date de péremption est la plus proche en premier.
+          // Les lots sans date (stock historique) restent utilisables, après les lots datés.
+          const today = new Date();
+          today.setUTCHours(0, 0, 0, 0);
+          const batches = await tx.medicineBatch.findMany({
+            where: {
+              medicineId: medicine.id,
+              pharmacyId,
+              quantity: { gt: 0 },
+              OR: [{ expiryDate: null }, { expiryDate: { gte: today } }],
+            },
+            orderBy: [{ expiryDate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }, { id: 'asc' }],
+          });
+          let remaining = item.quantity;
+          const allocations: { medicineBatchId: string; quantity: number }[] = [];
+          for (const batch of batches) {
+            if (remaining <= 0) break;
+            const taken = Math.min(batch.quantity, remaining);
+            const changedBatch = await tx.medicineBatch.updateMany({
+              where: { id: batch.id, quantity: { gte: taken } },
+              data: { quantity: { decrement: taken } },
+            });
+            if (changedBatch.count === 1) {
+              allocations.push({ medicineBatchId: batch.id, quantity: taken });
+              remaining -= taken;
+            }
+          }
+          if (remaining > 0) {
+            throw new ConflictException(
+              `Stock par lots insuffisant pour ${medicine.name}: ${remaining} unité(s) demandée(s) en plus. Les lots expirés ne peuvent pas être vendus.`,
+            );
+          }
+
           // On relit le stock réel après décrémentation (dans la même
           // transaction) pour que l'historique de mouvement soit exact,
           // même en cas de forte concurrence.
@@ -107,6 +143,7 @@ export class SalesService {
             quantity: item.quantity,
             previousStock: updatedMedicine.stock + item.quantity,
             newStock: updatedMedicine.stock,
+            allocations,
           });
 
           const itemDiscount = item.discount || 0;
@@ -151,7 +188,7 @@ export class SalesService {
         // stock est automatiquement restauré par PostgreSQL).
         const sale = await tx.sale.create({
           data: {
-            invoiceNumber: `INV-${Date.now()}`,
+            invoiceNumber: `INV-${randomUUID()}`,
             customerName: customerName || null,
             customerPhone: customerPhone || null,
             totalAmount: finalTotal,
@@ -164,30 +201,21 @@ export class SalesService {
             notes: notes || null,
             pharmacyId,
             userId,
-            saleItems: {
-              create: saleItems,
-            },
           },
+        });
+
+        for (let i = 0; i < saleItems.length; i++) {
+          const saleItem = await tx.saleItem.create({ data: { ...saleItems[i], saleId: sale.id } });
+          await tx.saleItemBatch.createMany({
+            data: stockMovements[i].allocations.map((allocation) => ({ saleItemId: saleItem.id, ...allocation })),
+          });
+        }
+
+        const saleWithItems = await tx.sale.findUniqueOrThrow({
+          where: { id: sale.id },
           include: {
-            saleItems: {
-              include: {
-                medicine: {
-                  select: {
-                    id: true,
-                    name: true,
-                    code: true,
-                    sellingCurrency: true,
-                  },
-                },
-              },
-            },
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
+            saleItems: { include: { medicine: { select: { id: true, name: true, code: true, sellingCurrency: true } }, batchAllocations: { include: { medicineBatch: true } } } },
+            user: { select: { id: true, firstName: true, lastName: true } },
           },
         });
 
@@ -211,8 +239,11 @@ export class SalesService {
         }
 
         this.logger.log(`Sale created: ${sale.invoiceNumber}`);
-        return sale;
+        return saleWithItems;
       });
+      await this.notifications.notifySaleCreated(pharmacyId, sale);
+      await this.notifications.notifyLowStockForMedicines(pharmacyId, sale.saleItems.map((item) => item.medicineId));
+      return sale;
     } catch (error: any) {
       this.logger.error(`Failed to create sale: ${error.message}`);
       if (
@@ -262,6 +293,7 @@ export class SalesService {
                 code: true,
               },
             },
+            batchAllocations: { include: { medicineBatch: true } },
           },
         },
         _count: {
@@ -297,6 +329,7 @@ export class SalesService {
                 sellingCurrency: true,
               },
             },
+            batchAllocations: { include: { medicineBatch: true } },
           },
         },
       },
@@ -316,7 +349,6 @@ export class SalesService {
       return await this.prisma.sale.update({
         where: { id },
         data: {
-          status: updateSaleDto.status,
           notes: updateSaleDto.notes,
         },
         include: {
@@ -365,16 +397,20 @@ export class SalesService {
   async cancel(id: string, pharmacyId: string) {
     const sale = await this.findOne(id, pharmacyId);
 
-    if (sale.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException('Cette vente est déjà annulée.');
+    if (sale.status !== OrderStatus.PAID) {
+      throw new BadRequestException('Seules les ventes payées peuvent être annulées.');
     }
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const updatedSale = await tx.sale.update({
-          where: { id },
+        const transition = await tx.sale.updateMany({
+          where: { id, pharmacyId, status: OrderStatus.PAID },
           data: { status: OrderStatus.CANCELLED },
         });
+        if (transition.count !== 1) {
+          throw new ConflictException('Cette vente a déjà été annulée ou modifiée.');
+        }
+        const updatedSale = await tx.sale.findFirstOrThrow({ where: { id, pharmacyId } });
 
         // Restaurer les stocks. L'incrément est intrinsèquement sûr en
         // concurrence (contrairement à la décrémentation, additionner ne
@@ -382,6 +418,12 @@ export class SalesService {
         // même l'opérateur atomique `increment` plutôt qu'une réécriture de
         // valeur absolue, par cohérence et pour garder un historique exact.
         for (const item of sale.saleItems) {
+          for (const allocation of item.batchAllocations) {
+            await tx.medicineBatch.update({
+              where: { id: allocation.medicineBatchId },
+              data: { quantity: { increment: allocation.quantity } },
+            });
+          }
           await tx.medicine.update({
             where: { id: item.medicineId },
             data: { stock: { increment: item.quantity } },
@@ -412,6 +454,9 @@ export class SalesService {
       });
     } catch (error: any) {
       this.logger.error(`Failed to cancel sale: ${error.message}`);
+      if (error instanceof BadRequestException || error instanceof ConflictException || error instanceof NotFoundException) {
+        throw error;
+      }
       throw new InternalServerErrorException("Erreur lors de l'annulation de la vente");
     }
   }

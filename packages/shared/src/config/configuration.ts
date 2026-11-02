@@ -14,7 +14,7 @@ export default () => ({
   },
 
   cors: {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3002,http://127.0.0.1:3002',
   },
 
   throttler: {

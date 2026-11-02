@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Param,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { CompleteStocktakeDto } from './dto/complete-stocktake.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequirePermissions } from '../permissions/permissions.decorator';
@@ -47,11 +49,13 @@ export class InventoryController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
+    const parsedLimit = limit && /^\d+$/.test(limit) ? Number(limit) : 50;
+    const parsedOffset = offset && /^\d+$/.test(offset) ? Number(offset) : 0;
     return this.inventoryService.getMovements(
       pharmacyId,
       medicineId,
-      limit ? parseInt(limit) : 50,
-      offset ? parseInt(offset) : 0,
+      Math.min(Math.max(parsedLimit, 1), 100),
+      Math.min(parsedOffset, 100_000),
     );
   }
 
@@ -72,5 +76,54 @@ export class InventoryController {
   @ApiOperation({ summary: 'Alertes de stock faible' })
   async getLowStockAlerts(@Tenant() pharmacyId: string) {
     return this.inventoryService.getLowStockAlerts(pharmacyId);
+  }
+
+  @Get('expiry-alerts')
+  @RequirePermissions('inventory:read')
+  @ApiOperation({ summary: 'Lots périmés ou proches de la péremption' })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  async getExpiryAlerts(@Tenant() pharmacyId: string, @Query('days') days?: string) {
+    const parsedDays = days && /^\d+$/.test(days) ? Number(days) : 90;
+    return this.inventoryService.getExpiryAlerts(pharmacyId, Math.min(Math.max(parsedDays, 1), 365));
+  }
+
+  @Get('stocktakes')
+  @RequirePermissions('inventory:read')
+  @ApiOperation({ summary: 'Sessions récentes d’inventaire physique' })
+  async listStocktakes(@Tenant() pharmacyId: string) {
+    return this.inventoryService.listStocktakes(pharmacyId);
+  }
+
+  @Post('stocktakes')
+  @RequirePermissions('inventory:adjust')
+  @ApiOperation({ summary: 'Ouvrir une session de comptage physique' })
+  async createStocktake(@Request() req: any, @Tenant() pharmacyId: string) {
+    return this.inventoryService.createStocktake(req.user.id, pharmacyId);
+  }
+
+  @Get('stocktakes/:id')
+  @RequirePermissions('inventory:read')
+  @ApiOperation({ summary: 'Détail d’une session de comptage' })
+  async getStocktake(@Param('id') id: string, @Tenant() pharmacyId: string) {
+    return this.inventoryService.getStocktake(id, pharmacyId);
+  }
+
+  @Post('stocktakes/:id/complete')
+  @RequirePermissions('inventory:adjust')
+  @ApiOperation({ summary: 'Valider un inventaire physique et appliquer les écarts' })
+  async completeStocktake(
+    @Param('id') id: string,
+    @Body() dto: CompleteStocktakeDto,
+    @Request() req: any,
+    @Tenant() pharmacyId: string,
+  ) {
+    return this.inventoryService.completeStocktake(id, pharmacyId, req.user.id, dto);
+  }
+
+  @Post('stocktakes/:id/cancel')
+  @RequirePermissions('inventory:adjust')
+  @ApiOperation({ summary: 'Annuler une session de comptage ouverte' })
+  async cancelStocktake(@Param('id') id: string, @Tenant() pharmacyId: string) {
+    return this.inventoryService.cancelStocktake(id, pharmacyId);
   }
 }

@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { medicinesService } from '../../services/medicines.service';
 import { salesService } from '../../services/sales.service';
-import { inventoryService } from '../../services/inventory.service';
 import { reportsService } from '../../services/reports.service';
 import {
   Package,
@@ -13,24 +12,20 @@ import {
   DollarSign,
   Clock,
   Loader2,
+  ArrowUpRight,
+  Plus,
 } from 'lucide-react';
+
+function formatMoney(value: number): string {
+  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value)} CDF`;
+}
 
 export function Dashboard() {
   const { user } = useAuth();
 
-  const { data: medicines, isLoading: medicinesLoading } = useQuery({
-    queryKey: ['medicines'],
-    queryFn: () => medicinesService.findAll(),
-  });
-
   const { data: sales, isLoading: salesLoading } = useQuery({
     queryKey: ['sales'],
     queryFn: () => salesService.findAll(),
-  });
-
-  const { isLoading: inventoryLoading } = useQuery({
-    queryKey: ['inventory-summary'],
-    queryFn: () => inventoryService.getSummary(),
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -38,7 +33,7 @@ export function Dashboard() {
     queryFn: () => reportsService.getDashboardStats(),
   });
 
-  const isLoading = medicinesLoading || salesLoading || inventoryLoading || statsLoading;
+  const isLoading = salesLoading || statsLoading;
 
   if (isLoading) {
     return (
@@ -48,7 +43,7 @@ export function Dashboard() {
     );
   }
 
-  const totalMedicines = medicines?.data?.length || 0;
+  const totalMedicines = stats?.totalMedicines || 0;
   const totalRevenue = stats?.totalRevenue || 0;
   const todayRevenue = stats?.todayRevenue || 0;
   const todaySalesCount = stats?.todaySalesCount || 0;
@@ -58,32 +53,24 @@ export function Dashboard() {
   const statsCards = [
     {
       title: 'Chiffre d\'affaires',
-      value: `${totalRevenue.toFixed(0)} CDF`,
+      value: formatMoney(totalRevenue),
       icon: DollarSign,
-      color: 'bg-emerald-500',
-      textColor: 'text-emerald-600',
     },
     {
       title: 'Ventes aujourd\'hui',
       value: `${todaySalesCount} ventes`,
-      subtitle: `${todayRevenue.toFixed(0)} CDF`,
+      subtitle: formatMoney(todayRevenue),
       icon: ShoppingCart,
-      color: 'bg-blue-500',
-      textColor: 'text-blue-600',
     },
     {
       title: 'Total médicaments',
       value: totalMedicines,
       icon: Package,
-      color: 'bg-purple-500',
-      textColor: 'text-purple-600',
     },
     {
       title: 'Clients',
       value: totalCustomers,
       icon: Users,
-      color: 'bg-teal-500',
-      textColor: 'text-teal-600',
     },
   ];
 
@@ -117,44 +104,47 @@ export function Dashboard() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-950 via-teal-900 to-teal-800 px-5 py-5 text-white shadow-md shadow-teal-950/10 sm:px-7 sm:py-6">
+        <div className="pointer-events-none absolute -right-10 -top-24 h-56 w-56 rounded-full border-[30px] border-white/[0.06]" />
+        <div className="pointer-events-none absolute -bottom-28 right-44 h-48 w-48 rounded-full bg-teal-300/[0.08] blur-2xl" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              Bonjour, {user?.firstName} {user?.lastName}
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-100">Tableau de bord</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-[1.75rem]">
+              Bonjour, {user?.firstName}
             </h1>
-            <p className="text-sm text-gray-500">Vue d'ensemble de votre activité</p>
-          </div>
-          <div className="mt-2 sm:mt-0">
-            <span className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1.5 text-xs text-teal-700">
-              <Clock className="h-3 w-3" />
+            <p className="mt-1.5 max-w-xl text-sm text-teal-50/90">
+              Synthèse de l’activité et des indicateurs de la pharmacie.
+            </p>
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-1.5 text-xs capitalize text-teal-50">
+              <Clock className="h-4 w-4" />
               {new Date().toLocaleDateString('fr-FR', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
               })}
-            </span>
+            </p>
           </div>
+          <Link to="/sales/new" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-teal-900 shadow-sm transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-teal-800">
+            <Plus className="h-4 w-4" />
+            Nouvelle vente
+          </Link>
         </div>
-      </div>
+      </section>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-3.5">
         {statsCards.map((stat, index) => (
-          <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-            <div className="flex items-start justify-between">
+          <div key={index} className="group rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md sm:p-4">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{stat.title}</p>
-                <p className="mt-1 text-xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">{stat.title}</p>
+                <p className="mt-1.5 text-xl font-bold tracking-tight text-gray-950 sm:text-2xl">{stat.value}</p>
                 {stat.subtitle && (
-                  <p className="text-xs text-gray-500">{stat.subtitle}</p>
+                  <p className="mt-1 text-xs text-gray-500">{stat.subtitle}</p>
                 )}
               </div>
-              <div className={`rounded-lg p-2 ${stat.color} bg-opacity-10`}>
-                <stat.icon className={`h-4 w-4 ${stat.textColor}`} />
+              <div className="rounded-xl bg-teal-50 p-2.5 text-teal-800 transition group-hover:bg-teal-100">
+                <stat.icon className="h-[18px] w-[18px]" />
               </div>
             </div>
           </div>
@@ -162,31 +152,49 @@ export function Dashboard() {
       </div>
 
       {/* Alertes stock */}
-      {lowStock > 0 && (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <p className="text-sm font-medium text-amber-800">
-              {lowStock} médicament(s) en stock critique
-            </p>
+      <div className={`flex flex-col gap-3 rounded-2xl border p-3.5 sm:flex-row sm:items-center sm:justify-between ${lowStock > 0 ? 'border-amber-200 bg-amber-50/80' : 'border-teal-100 bg-white'}`}>
+          <div className="flex items-center gap-3">
+            <span className={`rounded-xl bg-white p-2 ${lowStock > 0 ? 'text-amber-700' : 'text-teal-800'}`}><AlertTriangle className="h-4 w-4" /></span>
+            <div><p className={`text-sm font-semibold ${lowStock > 0 ? 'text-amber-950' : 'text-gray-900'}`}>{lowStock > 0 ? `${lowStock} médicament(s) à réapprovisionner` : 'Stock sous contrôle'}</p><p className="mt-0.5 text-xs text-gray-600">{lowStock > 0 ? 'Consultez les notifications et le détail dans le module Stocks.' : 'Surveillance active des seuils de stock.'}</p></div>
           </div>
+          <Link to="/inventory" className={`inline-flex items-center gap-1 text-sm font-semibold ${lowStock > 0 ? 'text-amber-900' : 'text-teal-800'} hover:underline`}>Voir le stock <ArrowUpRight className="h-4 w-4" /></Link>
+      </div>
+
+      <div>
+        <div className="mb-2.5 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-bold tracking-tight text-gray-900">Actions principales</h2></div>
         </div>
-      )}
+        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: 'Ajouter un médicament', to: '/medicines/new', icon: Package },
+            { label: 'Créer une vente', to: '/sales/new', icon: ShoppingCart },
+            { label: 'Ajouter un client', to: '/customers/new', icon: Users },
+            { label: 'Consulter les rapports', to: '/reports/sales', icon: TrendingUp },
+          ].map((action) => (
+            <Link key={action.to} to={action.to} className="group flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-gray-200/80 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50/60 hover:text-teal-900 hover:shadow-md">
+              <span className="flex items-center gap-2.5"><span className="rounded-xl bg-teal-50 p-2 text-teal-800 group-hover:bg-white"><action.icon className="h-4 w-4" /></span>{action.label}</span>
+              <ArrowUpRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-teal-800" />
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {/* Dernières ventes */}
-      <div className="mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-900">Dernières ventes</h2>
-          <button className="text-sm text-teal-600 hover:text-teal-800 font-medium">
-            Voir tout →
-          </button>
+      <div>
+        <div className="mb-2.5 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-gray-900">Dernières ventes</h2>
+            <p className="mt-0.5 text-xs text-gray-500">Historique des ventes récentes</p>
+          </div>
+          <Link to="/sales" className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-teal-800 hover:text-teal-950">Toutes les ventes <ArrowUpRight className="h-4 w-4" /></Link>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
           {recentSales.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <ShoppingCart className="h-10 w-10 text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">Aucune vente enregistrée</p>
+            <div className="flex min-h-36 flex-col items-center justify-center px-5 py-6 text-center">
+              <span className="rounded-2xl bg-teal-50 p-2.5 text-teal-700"><ShoppingCart className="h-5 w-5" /></span>
+              <p className="mt-2.5 text-sm font-semibold text-gray-800">Aucune vente enregistrée</p>
+              <Link to="/sales/new" className="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-teal-800 transition hover:bg-teal-50"><Plus className="h-4 w-4" />Enregistrer une vente</Link>
             </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
@@ -209,7 +217,7 @@ export function Dashboard() {
                       {sale.customerName || 'Client non renseigné'}
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
-                      {sale.totalAmount?.toFixed(2)} CDF
+                      {Number(sale.totalAmount ?? 0).toFixed(2)} CDF
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(sale.status)}`}>
@@ -227,25 +235,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-all hover:border-teal-300 hover:bg-teal-50/50 hover:text-teal-700">
-          <Package className="h-4 w-4 text-teal-600" />
-          Nouveau médicament
-        </button>
-        <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-all hover:border-teal-300 hover:bg-teal-50/50 hover:text-teal-700">
-          <ShoppingCart className="h-4 w-4 text-teal-600" />
-          Nouvelle vente
-        </button>
-        <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-all hover:border-teal-300 hover:bg-teal-50/50 hover:text-teal-700">
-          <Users className="h-4 w-4 text-teal-600" />
-          Nouveau client
-        </button>
-        <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-all hover:border-teal-300 hover:bg-teal-50/50 hover:text-teal-700">
-          <TrendingUp className="h-4 w-4 text-teal-600" />
-          Voir les rapports
-        </button>
-      </div>
     </div>
   );
 }

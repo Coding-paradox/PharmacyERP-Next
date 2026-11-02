@@ -2,23 +2,28 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Pill,
-  FolderOpen,
+  Tags,
   Ruler,
-  Building2,
+  Factory,
   Truck,
   ShoppingCart,
-  Package,
-  Users,
-  UserCircle,
-  TrendingUp,
+  ClipboardList,
+  Boxes,
+  UsersRound,
+  UserCog,
+  ChartNoAxesCombined,
   Settings,
   LogOut,
   ChevronLeft,
   FlaskConical,
-  Stethoscope,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
+
+interface SidebarProps {
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
 
 // Les 14 liens sont regroupés en sections logiques plutôt qu'en une seule
 // longue liste plate : plus facile à scanner visuellement, et ça atténue
@@ -32,9 +37,9 @@ const menuSections = [
     label: 'Catalogue',
     items: [
       { icon: Pill, label: 'Médicaments', path: '/medicines' },
-      { icon: FolderOpen, label: 'Catégories', path: '/categories' },
+      { icon: Tags, label: 'Catégories', path: '/categories' },
       { icon: Ruler, label: 'Unités', path: '/units' },
-      { icon: Building2, label: 'Fabricants', path: '/manufacturers' },
+      { icon: Factory, label: 'Fabricants', path: '/manufacturers' },
       { icon: FlaskConical, label: 'Noms génériques', path: '/references/generic-names' },
     ],
   },
@@ -42,23 +47,23 @@ const menuSections = [
     label: 'Opérations',
     items: [
       { icon: Truck, label: 'Fournisseurs', path: '/suppliers' },
-      { icon: Package, label: 'Achats', path: '/purchases' },
+      { icon: ClipboardList, label: 'Achats', path: '/purchases' },
       { icon: ShoppingCart, label: 'Ventes', path: '/sales' },
-      { icon: Package, label: 'Stocks', path: '/inventory' },
-      { icon: Users, label: 'Clients', path: '/customers' },
+      { icon: Boxes, label: 'Stocks', path: '/inventory' },
+      { icon: UsersRound, label: 'Clients', path: '/customers' },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { icon: UserCircle, label: 'Utilisateurs', path: '/users' },
-      { icon: TrendingUp, label: 'Rapports', path: '/reports/sales' },
+      { icon: UserCog, label: 'Utilisateurs', path: '/users' },
+      { icon: ChartNoAxesCombined, label: 'Rapports', path: '/reports/sales' },
       { icon: Settings, label: 'Paramètres', path: '/settings' },
     ],
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -67,19 +72,22 @@ export function Sidebar() {
   };
 
   return (
-    <aside
-      className={`flex h-screen flex-col border-r bg-white transition-all duration-300 ${
-        collapsed ? 'w-20' : 'w-64'
-      }`}
-    >
+    <>
+      {mobileOpen && (
+        <button aria-label="Fermer le menu" onClick={onMobileClose} className="fixed inset-0 z-40 bg-black/40 md:hidden" />
+      )}
+      <aside
+      className={`fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r bg-white transition-transform duration-300 md:relative md:z-auto md:translate-x-0 md:transition-[width] ${collapsed ? 'w-64 md:w-20' : 'w-64'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+      >
       <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-2.5 overflow-hidden">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-700 text-white">
-            <Stethoscope className="h-4 w-4" strokeWidth={2.5} />
+        <div className="flex min-w-0 items-center gap-2.5 overflow-hidden">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_2px_10px_rgba(4,67,64,.10)] ring-1 ring-teal-950/5">
+            <img src="/icons/pharmacy-emblem.svg" alt="" className="h-9 w-9 object-contain" />
           </span>
           {!collapsed && (
-            <span className="truncate text-base font-semibold text-gray-900">
-              PharmacyERP
+            <span className="min-w-0 truncate text-[15px] leading-[1.05] tracking-tight text-teal-950">
+              <span className="font-extrabold">MULANGO</span><br />
+              <span className="font-semibold">Healthcare</span>
             </span>
           )}
         </div>
@@ -110,16 +118,17 @@ export function Sidebar() {
             {section.label && collapsed && sectionIndex > 0 && (
               <div className="mx-3 my-2 border-t border-gray-100" />
             )}
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {section.items.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  onClick={onMobileClose}
                   className={({ isActive }) =>
-                    `group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
+                    `group relative flex min-h-11 items-center gap-3 rounded-xl px-2.5 py-1.5 text-sm font-medium transition-all duration-150 ${
                       isActive
-                        ? 'bg-teal-50 text-teal-800'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-teal-700'
+                        ? 'bg-[#e7f2f1] text-[#004c49] shadow-[inset_0_0_0_1px_rgba(0,76,73,.035)]'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-teal-800'
                     } ${collapsed ? 'justify-center' : ''}`
                   }
                   title={collapsed ? item.label : ''}
@@ -131,7 +140,9 @@ export function Sidebar() {
                       {isActive && (
                         <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-teal-700" />
                       )}
-                      <item.icon className="h-[18px] w-[18px] shrink-0" />
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${isActive ? 'bg-white/85 text-teal-900 shadow-sm' : 'text-slate-500 group-hover:bg-white group-hover:text-teal-800'}`}>
+                        <item.icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                      </span>
                       {!collapsed && <span>{item.label}</span>}
                     </>
                   )}
@@ -154,6 +165,7 @@ export function Sidebar() {
           {!collapsed && <span>Déconnexion</span>}
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

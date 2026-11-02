@@ -69,7 +69,7 @@ export class UnitsService {
       orderBy: { name: 'asc' },
       include: {
         _count: {
-          select: { medicines: true },
+          select: { medicines: { where: { deletedAt: null } } },
         },
       },
     });
@@ -83,6 +83,7 @@ export class UnitsService {
       },
       include: {
         medicines: {
+          where: { deletedAt: null },
           select: {
             id: true,
             name: true,
@@ -90,7 +91,7 @@ export class UnitsService {
           },
         },
         _count: {
-          select: { medicines: true },
+          select: { medicines: { where: { deletedAt: null } } },
         },
       },
     });
@@ -141,20 +142,23 @@ export class UnitsService {
   }
 
   async remove(id: string, pharmacyId: string) {
-    const unit = await this.findOne(id, pharmacyId);
-
-    if (unit._count.medicines > 0) {
-      throw new ConflictException(
-        `Impossible de supprimer cette unité car elle est utilisée par ${unit._count.medicines} médicament(s).`,
-      );
-    }
+    await this.findOne(id, pharmacyId);
 
     try {
-      await this.prisma.unit.delete({
-        where: { id },
+      await this.prisma.$transaction(async (tx) => {
+        const activeMedicineCount = await tx.medicine.count({
+          where: { unitId: id, pharmacyId, deletedAt: null },
+        });
+        if (activeMedicineCount > 0) {
+          throw new ConflictException(
+            `Impossible de supprimer cette unité : ${activeMedicineCount} médicament(s) du catalogue l’utilisent encore.`,
+          );
+        }
+        await tx.unit.delete({ where: { id } });
       });
       return { success: true, message: 'Unité supprimée avec succès' };
     } catch (error: any) {
+      if (error instanceof ConflictException || error instanceof NotFoundException) throw error;
       this.logger.error(`Failed to delete unit: ${error.message}`);
       throw new InternalServerErrorException('Erreur lors de la suppression de l\'unité');
     }

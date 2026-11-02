@@ -224,6 +224,10 @@ export class MedicineService {
         genericName: true,
         dosage: true,
         dosageForm: true,
+        batches: {
+          where: { quantity: { gt: 0 } },
+          orderBy: [{ expiryDate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+        },
       },
     });
 

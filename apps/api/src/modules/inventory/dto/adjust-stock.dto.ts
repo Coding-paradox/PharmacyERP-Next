@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsUUID, IsNumber, IsString, IsOptional, Min, IsEnum, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
 import { InventoryMovementType } from '@prisma/client';
 
 export class AdjustStockDto {
@@ -21,4 +22,19 @@ export class AdjustStockDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Lot ciblé pour un retrait ou une correction négative' })
+  @IsOptional()
+  @IsUUID()
+  medicineBatchId?: string;
+
+  @ApiPropertyOptional({ example: 'LOT-2026-01' })
+  @IsOptional()
+  @IsString()
+  batchNumber?: string;
+
+  @ApiPropertyOptional({ example: '2027-12-31T00:00:00Z' })
+  @IsOptional()
+  @Type(() => Date)
+  expiryDate?: Date;
 }

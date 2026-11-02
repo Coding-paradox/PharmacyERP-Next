@@ -41,6 +41,13 @@ export function SaleDetails() {
     CANCELLED: 'Annulée',
     REFUNDED: 'Remboursée',
   };
+  const paymentLabels: Record<string, string> = {
+    CASH: 'Espèces',
+    CARD: 'Carte',
+    INSURANCE: 'Assurance',
+    MOBILE_MONEY: 'Mobile Money',
+    BANK_TRANSFER: 'Virement bancaire',
+  };
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('fr-FR', {
@@ -54,15 +61,18 @@ export function SaleDetails() {
   const currency = sale.currency || 'CDF';
 
   return (
-    <div>
+    <div className="sale-print-root">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/sales')} className="rounded p-1 hover:bg-gray-100">
+          <button onClick={() => navigate('/sales')} className="sale-print-hide rounded p-1 hover:bg-gray-100">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Vente #{sale.invoiceNumber}</h1>
+          <div>
+            <p className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 print:block">Facture de vente</p>
+            <h1 className="text-2xl font-bold text-gray-900">Vente #{sale.invoiceNumber}</h1>
+          </div>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300">
+        <button onClick={() => window.print()} className="sale-print-hide inline-flex items-center gap-2 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300">
           <Printer className="h-4 w-4" />
           Imprimer
         </button>
@@ -86,6 +96,10 @@ export function SaleDetails() {
           <h3 className="text-sm font-medium text-gray-500">Date</h3>
           <p className="mt-1 text-gray-900">{formatDate(sale.createdAt)}</p>
         </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h3 className="text-sm font-medium text-gray-500">Paiement</h3>
+          <p className="mt-1 text-gray-900">{paymentLabels[sale.paymentMethod] || sale.paymentMethod}</p>
+        </div>
       </div>
 
       <div className="mt-6 rounded-lg border border-gray-200 bg-white">
@@ -104,31 +118,31 @@ export function SaleDetails() {
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm text-gray-900">{item.medicine?.name || item.medicineId}</td>
                   <td className="px-6 py-4 text-center text-sm text-gray-600">{item.quantity}</td>
-                  <td className="px-6 py-4 text-right text-sm text-gray-600">{item.unitPrice?.toFixed(2)} {item.currency || currency}</td>
-                  <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">{item.totalPrice?.toFixed(2)} {item.currency || currency}</td>
+                  <td className="px-6 py-4 text-right text-sm text-gray-600">{Number(item.unitPrice ?? 0).toFixed(2)} {item.currency || currency}</td>
+                  <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">{Number(item.totalPrice ?? 0).toFixed(2)} {item.currency || currency}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="bg-gray-50">
               <tr>
                 <td colSpan={3} className="px-6 py-4 text-right font-medium text-gray-900">Sous-total</td>
-                <td className="px-6 py-4 text-right font-medium text-gray-900">{sale.netAmount?.toFixed(2)} {currency}</td>
+                <td className="px-6 py-4 text-right font-medium text-gray-900">{Number(sale.netAmount ?? 0).toFixed(2)} {currency}</td>
               </tr>
               {sale.discount > 0 && (
                 <tr>
                   <td colSpan={3} className="px-6 py-4 text-right font-medium text-red-600">Remise</td>
-                  <td className="px-6 py-4 text-right font-medium text-red-600">-{sale.discount?.toFixed(2)} {currency}</td>
+                  <td className="px-6 py-4 text-right font-medium text-red-600">-{Number(sale.discount ?? 0).toFixed(2)} {currency}</td>
                 </tr>
               )}
               {sale.tax > 0 && (
                 <tr>
                   <td colSpan={3} className="px-6 py-4 text-right font-medium text-gray-900">Taxe</td>
-                  <td className="px-6 py-4 text-right font-medium text-gray-900">+{sale.tax?.toFixed(2)} {currency}</td>
+                  <td className="px-6 py-4 text-right font-medium text-gray-900">+{Number(sale.tax ?? 0).toFixed(2)} {currency}</td>
                 </tr>
               )}
               <tr>
                 <td colSpan={3} className="px-6 py-4 text-right text-lg font-bold text-gray-900">Total</td>
-                <td className="px-6 py-4 text-right text-lg font-bold text-teal-700">{sale.totalAmount?.toFixed(2)} {currency}</td>
+                <td className="px-6 py-4 text-right text-lg font-bold text-teal-700">{Number(sale.totalAmount ?? 0).toFixed(2)} {currency}</td>
               </tr>
             </tfoot>
           </table>

@@ -34,17 +34,20 @@ export function SalesReport() {
   }
 
   const stats = [
-    { label: "Chiffre d'affaires", value: `${data?.summary.totalRevenue.toFixed(0)} CDF`, icon: DollarSign, color: 'bg-green-500' },
-    { label: 'Nombre de ventes', value: data?.summary.totalSales || 0, icon: ShoppingCart, color: 'bg-blue-500' },
-    { label: 'Panier moyen', value: `${data?.summary.averageTicket.toFixed(0)} CDF`, icon: TrendingUp, color: 'bg-purple-500' },
-    { label: 'Période', value: data?.summary.period || 'Mois', icon: Calendar, color: 'bg-orange-500' },
+    { label: "Chiffre d'affaires", value: `${Number(data?.summary?.totalRevenue ?? 0).toFixed(0)} CDF`, icon: DollarSign },
+    { label: 'Nombre de ventes', value: data?.summary.totalSales || 0, icon: ShoppingCart },
+    { label: 'Panier moyen', value: `${Number(data?.summary?.averageTicket ?? 0).toFixed(0)} CDF`, icon: TrendingUp },
+    { label: 'Période', value: data?.summary.period || 'Mois', icon: Calendar },
   ];
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Rapport des ventes</h1>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Rapport des ventes</h1>
+          <p className="mt-1 text-sm text-gray-500">Ventes, chiffre d’affaires et produits par période.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
@@ -76,10 +79,10 @@ export function SalesReport() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
         {stats.map((stat, index) => (
-          <div key={index} className="flex items-center gap-4 rounded-lg bg-white p-6 shadow">
-            <div className={`rounded-full p-3 ${stat.color} text-white`}>
+          <div key={index} className="flex items-center gap-4 rounded-2xl border border-teal-900/5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5">
+            <div className="rounded-xl bg-teal-50 p-3 text-teal-800">
               <stat.icon className="h-5 w-5" />
             </div>
             <div>
@@ -90,7 +93,7 @@ export function SalesReport() {
         ))}
       </div>
 
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow">
+      <div className="mt-6 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900">Top 10 médicaments</h2>
         <div className="mt-4">
           {data?.topMedicines.length === 0 || data?.topMedicines[0]?.name === 'Aucune donnée' ? (
@@ -119,7 +122,7 @@ export function SalesReport() {
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-900">{item.name}</td>
                     <td className="px-4 py-2 text-center text-sm text-gray-600">{item.quantity}</td>
-                    <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">{item.revenue.toFixed(0)} CDF</td>
+                    <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">{Number(item.revenue ?? 0).toFixed(0)} CDF</td>
                   </tr>
                 ))}
               </tbody>
@@ -128,7 +131,7 @@ export function SalesReport() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow">
+      <div className="mt-6 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900">Ventes quotidiennes</h2>
         <div className="mt-4">
           {data?.dailySales.length === 0 ? (
@@ -140,7 +143,7 @@ export function SalesReport() {
                   <span className="text-sm text-gray-600">{new Date(day.date).toLocaleDateString('fr-FR')}</span>
                   <div className="flex items-center gap-6">
                     <span className="text-sm text-gray-600">{day.count} ventes</span>
-                    <span className="text-sm font-medium text-gray-900">{day.revenue.toFixed(0)} CDF</span>
+                    <span className="text-sm font-medium text-gray-900">{Number(day.revenue ?? 0).toFixed(0)} CDF</span>
                   </div>
                 </div>
               ))}

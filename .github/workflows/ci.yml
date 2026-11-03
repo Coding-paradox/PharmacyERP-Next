@@ -15,6 +15,10 @@ jobs:
     name: Type-check & build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Valeur factice : uniquement pour que Prisma puisse générer le client.
+      # Aucune connexion à une base de données n'est faite pendant la CI.
+      DATABASE_URL: postgresql://user:password@localhost:5432/pharmacy?schema=public
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
@@ -30,6 +34,12 @@ jobs:
 
       - name: Installer les dépendances
         run: pnpm install --frozen-lockfile
+
+      - name: Générer le client Prisma
+        run: pnpm prisma:generate
+
+      - name: Compiler le package database
+        run: pnpm --filter @pharmacy/database build
 
       - name: Type-check API
         run: pnpm --filter api type-check

@@ -14,7 +14,7 @@ export function Layout({ children }: LayoutProps) {
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onMenuClick={() => setMobileMenuOpen((open) => !open)} />
-        <main className="min-w-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
+        <main className="module-content min-w-0 flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
           {children}
         </main>
       </div>

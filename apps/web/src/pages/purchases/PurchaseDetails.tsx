@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Package, Printer, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Package, Printer, CheckCircle, Copy, Check } from 'lucide-react';
 import { purchasesService } from '../../services/purchases.service';
 
 const statusConfig = {
@@ -25,6 +25,7 @@ export function PurchaseDetails() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
+  const [referenceCopied, setReferenceCopied] = useState(false);
 
   const { data: purchase, isLoading, error } = useQuery({
     queryKey: ['purchase', id],
@@ -46,6 +47,16 @@ export function PurchaseDetails() {
   });
 
   const handleReceive = () => receiveMutation.mutate(id!);
+
+  const copyReference = async (reference: string) => {
+    try {
+      await navigator.clipboard.writeText(reference);
+      setReferenceCopied(true);
+      window.setTimeout(() => setReferenceCopied(false), 1800);
+    } catch {
+      setReferenceCopied(false);
+    }
+  };
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('fr-FR', {
@@ -86,7 +97,13 @@ export function PurchaseDetails() {
           </button>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">Commande fournisseur</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-950">{purchase.invoiceNumber}</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-950">{purchase.invoiceNumber}</h1>
+              <button type="button" onClick={() => copyReference(purchase.invoiceNumber)} title="Copier la référence de commande" aria-label="Copier la référence de commande" className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-teal-50 hover:text-teal-800 print:hidden">
+                {referenceCopied ? <Check className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <Copy className="h-[18px] w-[18px]" strokeWidth={1.75} />}
+              </button>
+              {referenceCopied && <span role="status" className="text-xs font-medium text-teal-800">Référence copiée</span>}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">

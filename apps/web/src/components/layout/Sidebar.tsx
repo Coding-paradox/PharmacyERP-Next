@@ -1,22 +1,20 @@
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Pill,
-  Tags,
-  Ruler,
-  Factory,
-  Truck,
-  ShoppingCart,
-  ClipboardList,
-  Boxes,
-  UsersRound,
-  UserCog,
-  ChartNoAxesCombined,
-  Settings,
-  LogOut,
-  ChevronLeft,
-  FlaskConical,
-} from 'lucide-react';
+import { SquaresFourIcon } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { PillIcon } from '@phosphor-icons/react/dist/csr/Pill';
+import { TagIcon } from '@phosphor-icons/react/dist/csr/Tag';
+import { RulerIcon } from '@phosphor-icons/react/dist/csr/Ruler';
+import { FactoryIcon } from '@phosphor-icons/react/dist/csr/Factory';
+import { FlaskIcon } from '@phosphor-icons/react/dist/csr/Flask';
+import { TruckIcon } from '@phosphor-icons/react/dist/csr/Truck';
+import { ClipboardTextIcon } from '@phosphor-icons/react/dist/csr/ClipboardText';
+import { ShoppingCartIcon } from '@phosphor-icons/react/dist/csr/ShoppingCart';
+import { PackageIcon } from '@phosphor-icons/react/dist/csr/Package';
+import { UsersThreeIcon } from '@phosphor-icons/react/dist/csr/UsersThree';
+import { UserGearIcon } from '@phosphor-icons/react/dist/csr/UserGear';
+import { ChartBarIcon } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { GearSixIcon } from '@phosphor-icons/react/dist/csr/GearSix';
+import { SignOutIcon } from '@phosphor-icons/react/dist/csr/SignOut';
+import { CaretLeftIcon } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
 
@@ -31,34 +29,34 @@ interface SidebarProps {
 const menuSections = [
   {
     label: null, // pas de titre pour la vue d'ensemble
-    items: [{ icon: LayoutDashboard, label: 'Tableau de bord', path: '/dashboard' }],
+    items: [{ icon: SquaresFourIcon, label: 'Tableau de bord', path: '/dashboard' }],
   },
   {
     label: 'Catalogue',
     items: [
-      { icon: Pill, label: 'Médicaments', path: '/medicines' },
-      { icon: Tags, label: 'Catégories', path: '/categories' },
-      { icon: Ruler, label: 'Unités', path: '/units' },
-      { icon: Factory, label: 'Fabricants', path: '/manufacturers' },
-      { icon: FlaskConical, label: 'Noms génériques', path: '/references/generic-names' },
+      { icon: PillIcon, label: 'Médicaments', path: '/medicines' },
+      { icon: TagIcon, label: 'Catégories', path: '/categories' },
+      { icon: RulerIcon, label: 'Unités', path: '/units' },
+      { icon: FactoryIcon, label: 'Fabricants', path: '/manufacturers' },
+      { icon: FlaskIcon, label: 'Noms génériques', path: '/references/generic-names' },
     ],
   },
   {
     label: 'Opérations',
     items: [
-      { icon: Truck, label: 'Fournisseurs', path: '/suppliers' },
-      { icon: ClipboardList, label: 'Achats', path: '/purchases' },
-      { icon: ShoppingCart, label: 'Ventes', path: '/sales' },
-      { icon: Boxes, label: 'Stocks', path: '/inventory' },
-      { icon: UsersRound, label: 'Clients', path: '/customers' },
+      { icon: TruckIcon, label: 'Fournisseurs', path: '/suppliers' },
+      { icon: ClipboardTextIcon, label: 'Achats', path: '/purchases' },
+      { icon: ShoppingCartIcon, label: 'Ventes', path: '/sales' },
+      { icon: PackageIcon, label: 'Stocks', path: '/inventory' },
+      { icon: UsersThreeIcon, label: 'Clients', path: '/customers' },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { icon: UserCog, label: 'Utilisateurs', path: '/users' },
-      { icon: ChartNoAxesCombined, label: 'Rapports', path: '/reports/sales' },
-      { icon: Settings, label: 'Paramètres', path: '/settings' },
+      { icon: UserGearIcon, label: 'Utilisateurs', path: '/users' },
+      { icon: ChartBarIcon, label: 'Rapports', path: '/reports/sales' },
+      { icon: GearSixIcon, label: 'Paramètres', path: '/settings' },
     ],
   },
 ];
@@ -66,6 +64,13 @@ const menuSections = [
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [tooltip, setTooltip] = useState<{ label: string; top: number; left: number } | null>(null);
+
+  const showTooltip = (label: string, target: HTMLElement) => {
+    if (!collapsed) return;
+    const bounds = target.getBoundingClientRect();
+    setTooltip({ label, top: bounds.top + bounds.height / 2, left: bounds.right + 9 });
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -92,12 +97,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           )}
         </div>
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => { setTooltip(null); setCollapsed(!collapsed); }}
           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           aria-label={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
         >
-          <ChevronLeft
-            className={`h-5 w-5 transition-transform duration-300 ${
+          <CaretLeftIcon
+            size={20}
+            weight="regular"
+            className={`transition-transform duration-200 ${
               collapsed ? 'rotate-180' : ''
             }`}
           />
@@ -107,43 +114,49 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* min-h-0 est ce qui permet réellement au scroll de fonctionner ici :
           sans lui, un enfant flex-1 refuse de rétrécir sous sa taille de
           contenu et déborde hors de l'écran au lieu de défiler. */}
-      <nav className="flex-1 min-h-0 space-y-4 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 min-h-0 space-y-5 overflow-y-auto px-3 py-4">
         {menuSections.map((section, sectionIndex) => (
           <div key={sectionIndex}>
             {section.label && !collapsed && (
-              <p className="px-3 pb-1.5 pt-2 text-xs font-medium text-gray-400">
+              <p className="px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                 {section.label}
               </p>
             )}
             {section.label && collapsed && sectionIndex > 0 && (
-              <div className="mx-3 my-2 border-t border-gray-100" />
+              <div className="mx-3 my-3 border-t border-slate-100" />
             )}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {section.items.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
                   onClick={onMobileClose}
+                  viewTransition
+                  onMouseEnter={(event) => showTooltip(item.label, event.currentTarget)}
+                  onMouseLeave={() => setTooltip(null)}
+                  onFocus={(event) => showTooltip(item.label, event.currentTarget)}
+                  onBlur={() => setTooltip(null)}
                   className={({ isActive }) =>
-                    `group relative flex min-h-11 items-center gap-3 rounded-xl px-2.5 py-1.5 text-sm font-medium transition-all duration-150 ${
+                    `group relative flex min-h-12 items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-medium transition-[color,background-color,transform] duration-200 ease-out ${
                       isActive
-                        ? 'bg-[#e7f2f1] text-[#004c49] shadow-[inset_0_0_0_1px_rgba(0,76,73,.035)]'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-teal-800'
+                        ? 'bg-[#edf5f4] text-[#004c49]'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-[#005c56] active:scale-[.99]'
                     } ${collapsed ? 'justify-center' : ''}`
                   }
-                  title={collapsed ? item.label : ''}
+                  aria-label={collapsed ? item.label : undefined}
+                  aria-describedby={collapsed ? 'sidebar-navigation-tooltip' : undefined}
                 >
                   {({ isActive }) => (
                     <>
                       {/* Liseré vertical à gauche du lien actif : plus net
                           qu'une simple ombre pour signaler la page courante. */}
                       {isActive && (
-                        <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-teal-700" />
+                        <span className="absolute left-0 top-1/2 h-6 w-[2px] -translate-y-1/2 rounded-r-full bg-[#087c73]" />
                       )}
-                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${isActive ? 'bg-white/85 text-teal-900 shadow-sm' : 'text-slate-500 group-hover:bg-white group-hover:text-teal-800'}`}>
-                        <item.icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] transition-[background-color,color,transform] duration-200 group-hover:-translate-y-px ${isActive ? 'bg-white/80 text-[#006b64]' : 'text-slate-500 group-hover:text-[#006b64]'}`}>
+                        <item.icon size={22} weight="duotone" className="transition-transform duration-200 group-hover:scale-[1.04]" />
                       </span>
-                      {!collapsed && <span>{item.label}</span>}
+                      {!collapsed && <span className="min-w-0 flex-1 truncate transition-transform duration-200 group-hover:translate-x-0.5">{item.label}</span>}
                     </>
                   )}
                 </NavLink>
@@ -156,15 +169,21 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       <div className="shrink-0 border-t p-3">
         <button
           onClick={handleLogout}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 ${
+          onMouseEnter={(event) => showTooltip('Déconnexion', event.currentTarget)}
+          onMouseLeave={() => setTooltip(null)}
+          onFocus={(event) => showTooltip('Déconnexion', event.currentTarget)}
+          onBlur={() => setTooltip(null)}
+          className={`group relative flex min-h-12 w-full items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-medium text-slate-600 transition-[color,background-color] duration-200 hover:bg-rose-50 hover:text-rose-700 ${
             collapsed ? 'justify-center' : ''
           }`}
-          title={collapsed ? 'Déconnexion' : ''}
+          aria-label={collapsed ? 'Déconnexion' : undefined}
+          aria-describedby={collapsed ? 'sidebar-navigation-tooltip' : undefined}
         >
-          <LogOut className="h-[18px] w-[18px] shrink-0" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-rose-600 transition-colors group-hover:bg-white/80"><SignOutIcon size={21} weight="regular" /></span>
           {!collapsed && <span>Déconnexion</span>}
         </button>
       </div>
+      {collapsed && tooltip && <span id="sidebar-navigation-tooltip" role="tooltip" className="pointer-events-none fixed z-[100] -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-700/80 bg-slate-900 px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_24px_rgba(15,23,42,.2)] animate-[sidebar-tooltip-in_120ms_ease-out_both]" style={{ top: tooltip.top, left: tooltip.left }}>{tooltip.label}</span>}
       </aside>
     </>
   );

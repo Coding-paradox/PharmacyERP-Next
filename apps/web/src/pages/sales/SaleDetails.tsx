@@ -1,11 +1,13 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Printer, Copy, Check } from 'lucide-react';
 import { salesService } from '../../services/sales.service';
 
 export function SaleDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [referenceCopied, setReferenceCopied] = useState(false);
 
   const { data: sale, isLoading, error } = useQuery({
     queryKey: ['sale', id],
@@ -60,6 +62,16 @@ export function SaleDetails() {
   };
   const currency = sale.currency || 'CDF';
 
+  const copyReference = async () => {
+    try {
+      await navigator.clipboard.writeText(sale.invoiceNumber);
+      setReferenceCopied(true);
+      window.setTimeout(() => setReferenceCopied(false), 1800);
+    } catch {
+      setReferenceCopied(false);
+    }
+  };
+
   return (
     <div className="sale-print-root">
       <div className="flex items-center justify-between">
@@ -69,7 +81,13 @@ export function SaleDetails() {
           </button>
           <div>
             <p className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 print:block">Facture de vente</p>
-            <h1 className="text-2xl font-bold text-gray-900">Vente #{sale.invoiceNumber}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900">Vente #{sale.invoiceNumber}</h1>
+              <button type="button" onClick={copyReference} title="Copier la référence de facture" aria-label="Copier la référence de facture" className="sale-print-hide inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-teal-50 hover:text-teal-800">
+                {referenceCopied ? <Check className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <Copy className="h-[18px] w-[18px]" strokeWidth={1.75} />}
+              </button>
+              {referenceCopied && <span role="status" className="sale-print-hide text-xs font-medium text-teal-800">Référence copiée</span>}
+            </div>
           </div>
         </div>
         <button onClick={() => window.print()} className="sale-print-hide inline-flex items-center gap-2 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300">

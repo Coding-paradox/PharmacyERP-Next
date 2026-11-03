@@ -22,6 +22,7 @@ import { validationSchema } from '@pharmacy/shared/config/validation.schema';
 import { GenericNamesModule } from './modules/generic-names';
 import { DosagesModule } from './modules/dosages';
 import { DosageFormsModule } from './modules/dosage-forms';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { DosageFormsModule } from './modules/dosage-forms';
     GenericNamesModule,
     DosagesModule,
     DosageFormsModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [],

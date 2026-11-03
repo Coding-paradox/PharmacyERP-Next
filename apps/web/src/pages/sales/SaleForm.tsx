@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, ShoppingCart, Package, Calculator, Users } from 'lucide-react';
+import { Plus, Trash2, Package, Calculator, Users } from 'lucide-react';
 import { salesService } from '../../services/sales.service';
 import { medicinesService } from '../../services/medicines.service';
 import { customersService } from '../../services/customers.service';
@@ -16,7 +16,7 @@ const currencies: Currency[] = ['CDF', 'USD'];
 const saleItemSchema = z.object({
   medicineId: z.string().min(1, 'Sélectionnez un médicament'),
   quantity: z.number().min(1, 'Quantité minimale: 1'),
-  unitPrice: z.number().min(0, 'Prix unitaire invalide'),
+  unitPrice: z.number().positive('Le prix unitaire doit être supérieur à 0'),
   currency: z.enum(['CDF', 'USD']).default('CDF'),
   discount: z.number().min(0).optional(),
 });
@@ -39,6 +39,7 @@ type SaleFormData = z.infer<typeof saleSchema>;
 export function SaleForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
@@ -46,7 +47,6 @@ export function SaleForm() {
     handleSubmit,
     watch,
     setValue,
-    getValues,
     formState: { errors, isSubmitting },
   } = useForm<SaleFormData>({
     resolver: zodResolver(saleSchema),
@@ -65,6 +65,11 @@ export function SaleForm() {
     name: 'items',
   });
 
+  const items = watch('items');
+  const discount = watch('discount') || 0;
+  const tax = watch('tax') || 0;
+  const currency = watch('currency') || 'CDF';
+
   const { data: medicines, isLoading: isLoadingMedicines } = useQuery({
     queryKey: ['medicines'],
     queryFn: () => medicinesService.findAll(),
@@ -75,45 +80,60 @@ export function SaleForm() {
     queryFn: () => customersService.findAll(),
   });
 
+  const medicinesWithoutPrice = items
+    .map((item) => medicines?.data?.find((medicine: any) => medicine.id === item.medicineId))
+    .filter((medicine: any) => medicine && Number(medicine.sellingPrice) <= 0);
+  const hasInvalidPrice = items.some((item) => !Number.isFinite(item.unitPrice) || item.unitPrice <= 0);
+
   const createMutation = useMutation({
     mutationFn: salesService.create,
     onSuccess: () => {
       navigate('/sales');
     },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message;
+      setServerError(Array.isArray(message) ? message.join(' • ') : message || 'La vente n’a pas pu être enregistrée. Vérifiez les données et réessayez.');
+    },
   });
 
   const onSubmit = async (data: SaleFormData) => {
-    await createMutation.mutateAsync({
-      ...data,
-      items: data.items.map((item) => ({ ...item, currency: data.currency })),
-    });
+    setServerError(null);
+    try {
+      // Ces champs servent au formulaire; l'API obtient le client et la
+      // pharmacie depuis le contexte authentifié et les données du client.
+      const { customerId: _customerId, pharmacyId: _pharmacyId, ...saleData } = data;
+      void _customerId;
+      void _pharmacyId;
+      await createMutation.mutateAsync({
+        ...saleData,
+        items: data.items.map((item) => ({ ...item, currency: data.currency })),
+      });
+    } catch {
+      // L'erreur est affichée par onError; on évite une promesse rejetée non gérée.
+    }
   };
 
   const handleCustomerSelect = (customerId: string) => {
-    setValue('customerId', customerId);
+    setValue('customerId', customerId, { shouldDirty: true, shouldValidate: true });
     const customer = customers?.find((c) => c.id === customerId);
     if (customer) {
-      setValue('customerName', customer.name);
-      setValue('customerPhone', customer.phone || '');
+      setValue('customerName', customer.name, { shouldDirty: true });
+      setValue('customerPhone', customer.phone || '', { shouldDirty: true });
     }
   };
 
   const handleMedicineSelect = (index: number, medicineId: string) => {
-    setValue(`items.${index}.medicineId`, medicineId);
+    setValue(`items.${index}.medicineId`, medicineId, { shouldDirty: true, shouldValidate: true });
     const medicine = medicines?.data?.find((m: any) => m.id === medicineId);
     if (medicine) {
-      setValue(`items.${index}.unitPrice`, medicine.sellingPrice || 0);
-      setValue(`items.${index}.currency`, medicine.sellingCurrency || 'CDF');
+      setValue(`items.${index}.unitPrice`, Number(medicine.sellingPrice) || 0, { shouldDirty: true, shouldValidate: true });
+      setValue(`items.${index}.currency`, medicine.sellingCurrency || 'CDF', { shouldDirty: true });
       if (items.length === 1) {
-        setValue('currency', medicine.sellingCurrency || 'CDF');
+        setValue('currency', medicine.sellingCurrency || 'CDF', { shouldDirty: true });
       }
     }
   };
 
-  const items = watch('items');
-  const discount = watch('discount') || 0;
-  const tax = watch('tax') || 0;
-  const currency = watch('currency') || 'CDF';
   const subtotal = items.reduce((sum, item) => {
     const itemDiscount = item.discount || 0;
     return sum + ((item.quantity || 0) * (item.unitPrice || 0) - itemDiscount);
@@ -148,6 +168,20 @@ export function SaleForm() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {serverError && (
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {serverError}
+          </div>
+        )}
+        {medicinesWithoutPrice.length > 0 && (
+          <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-semibold">Prix de vente non configuré</p>
+            <p className="mt-1">
+              {medicinesWithoutPrice.map((medicine: any) => medicine.name).join(', ')} n’a pas de prix de vente dans sa fiche.
+              Saisissez un prix unitaire ci-dessous ou complétez sa fiche médicament pour le remplir automatiquement aux prochaines ventes.
+            </p>
+          </div>
+        )}
         {/* Client et paiement */}
         <div className="bg-white rounded-lg border border-gray-100 p-6 shadow-sm">
           <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -159,8 +193,7 @@ export function SaleForm() {
             <div>
               <label className="block text-sm font-medium text-gray-700">Client</label>
               <select
-                {...register('customerId')}
-                onChange={(e) => handleCustomerSelect(e.target.value)}
+                {...register('customerId', { onChange: (e) => handleCustomerSelect(e.target.value) })}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 focus:outline-none transition-all"
               >
                 <option value="">Sélectionner un client</option>
@@ -262,13 +295,16 @@ export function SaleForm() {
           </div>
 
           <div className="space-y-3">
-            {fields.map((field, index) => (
+            {fields.map((field, index) => {
+              const medicineRegistration = register(`items.${index}.medicineId`, {
+                onChange: (event) => handleMedicineSelect(index, event.target.value),
+              });
+              return (
               <div key={field.id} className="grid grid-cols-12 gap-3 items-end bg-gray-50 rounded-lg p-4">
                 <div className="col-span-4">
                   <label className="block text-xs font-medium text-gray-700">Médicament</label>
                   <select
-                    {...register(`items.${index}.medicineId`)}
-                    onChange={(e) => handleMedicineSelect(index, e.target.value)}
+                    {...medicineRegistration}
                     className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500 focus:outline-none transition-all"
                   >
                     <option value="">Sélectionner...</option>
@@ -297,6 +333,9 @@ export function SaleForm() {
                     {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
                     className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500 focus:outline-none transition-all"
                   />
+                  {errors.items?.[index]?.unitPrice && (
+                    <p className="mt-1 text-xs text-red-600">{errors.items[index]?.unitPrice?.message}</p>
+                  )}
                 </div>
 
                 <div className="col-span-2">
@@ -320,7 +359,7 @@ export function SaleForm() {
                   </button>
                 </div>
               </div>
-            ))}
+            );})}
           </div>
 
           {errors.items && (
@@ -370,8 +409,8 @@ export function SaleForm() {
         <div className="flex gap-4">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="rounded-lg bg-teal-700 px-6 py-2.5 text-sm font-medium text-white hover:bg-teal-800 transition-colors disabled:opacity-50"
+            disabled={isSubmitting || hasInvalidPrice}
+            className="rounded-lg bg-teal-700 px-6 py-2.5 text-sm font-medium text-white hover:bg-teal-800 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? 'Création...' : 'Créer la vente'}
           </button>

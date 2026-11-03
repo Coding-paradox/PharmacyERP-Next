@@ -4,28 +4,31 @@ import {
   InternalServerErrorException,
   Logger,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '@pharmacy/database';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { Currency, Prisma, OrderStatus } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PurchasesService {
   private readonly logger = new Logger(PurchasesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsService) {}
 
-  async create(createPurchaseDto: CreatePurchaseDto, userId: string) {
+  async create(createPurchaseDto: CreatePurchaseDto, userId: string, pharmacyId: string) {
     const {
       supplierId,
       supplierName,
       supplierPhone,
+      supplierInvoiceNumber,
       tax,
       currency = Currency.CDF,
       notes,
       items,
-      pharmacyId,
     } = createPurchaseDto;
 
     if (!items || items.length === 0) {
@@ -38,8 +41,17 @@ export class PurchasesService {
         const purchaseItems = [];
 
         for (const item of items) {
-          const medicine = await tx.medicine.findUnique({
-            where: { id: item.medicineId },
+          if (!item.batchNumber?.trim() || !item.expiryDate || Number.isNaN(new Date(item.expiryDate).getTime())) {
+            throw new BadRequestException('Chaque article doit avoir un numéro de lot et une date de péremption valide.');
+          }
+          const expiryDay = new Date(item.expiryDate);
+          const today = new Date();
+          today.setUTCHours(0, 0, 0, 0);
+          if (expiryDay < today) {
+            throw new BadRequestException(`Le lot ${item.batchNumber} est déjà périmé.`);
+          }
+          const medicine = await tx.medicine.findFirst({
+            where: { id: item.medicineId, pharmacyId, deletedAt: null },
             select: { id: true, name: true, costCurrency: true },
           });
 
@@ -67,16 +79,22 @@ export class PurchasesService {
           });
         }
 
+        if (supplierId) {
+          const supplier = await tx.supplier.findFirst({ where: { id: supplierId, pharmacyId }, select: { id: true } });
+          if (!supplier) throw new NotFoundException('Fournisseur non trouvé dans cette pharmacie.');
+        }
+
         const netAmount = totalAmount;
         const taxAmount = tax || 0;
         const totalWithTax = netAmount + taxAmount;
 
         const purchase = await tx.purchase.create({
           data: {
-            invoiceNumber: `PO-${Date.now()}`,
+            invoiceNumber: `PO-${randomUUID()}`,
             supplierId: supplierId || null,
             supplierName,
             supplierPhone: supplierPhone || null,
+            supplierInvoiceNumber: supplierInvoiceNumber?.trim() || null,
             totalAmount: totalWithTax,
             tax: taxAmount,
             netAmount,
@@ -138,6 +156,7 @@ export class PurchasesService {
       where.OR = [
         { invoiceNumber: { contains: search, mode: 'insensitive' } },
         { supplierName: { contains: search, mode: 'insensitive' } },
+        { supplierInvoiceNumber: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -222,7 +241,6 @@ export class PurchasesService {
       return await this.prisma.purchase.update({
         where: { id },
         data: {
-          status: updatePurchaseDto.status,
           notes: updatePurchaseDto.notes,
         },
         include: {
@@ -277,12 +295,16 @@ export class PurchasesService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        // Mettre à jour le statut
-        const updatedPurchase = await tx.purchase.update({
-          where: { id },
+      const updatedPurchase = await this.prisma.$transaction(async (tx) => {
+        // Transition atomique : une seule requête concurrente peut réceptionner la commande.
+        const transition = await tx.purchase.updateMany({
+          where: { id, pharmacyId, status: OrderStatus.PENDING },
           data: { status: OrderStatus.PAID },
         });
+        if (transition.count !== 1) {
+          throw new ConflictException('Cette commande a déjà été réceptionnée ou modifiée.');
+        }
+        const updatedPurchase = await tx.purchase.findFirstOrThrow({ where: { id, pharmacyId } });
 
         // Mettre à jour les stocks
         for (const item of purchase.purchaseItems) {
@@ -293,13 +315,37 @@ export class PurchasesService {
           // correctif, previousStock était toujours codé en dur à 0 et
           // newStock reprenait juste la quantité reçue, ce qui rendait tout
           // l'historique d'audit faux dès la 2e livraison d'un médicament.
-          const medicineBeforeUpdate = await tx.medicine.findUniqueOrThrow({
-            where: { id: item.medicineId },
+          const medicineBeforeUpdate = await tx.medicine.findFirstOrThrow({
+            where: { id: item.medicineId, pharmacyId, deletedAt: null },
             select: { stock: true },
           });
 
           const previousStock = medicineBeforeUpdate.stock;
           const newStock = previousStock + item.quantity;
+
+          const medicineDetails = await tx.medicine.findUniqueOrThrow({
+            where: { id: item.medicineId },
+            select: { batchNumber: true, expiryDate: true },
+          });
+          const batchNumber = item.batchNumber?.trim() || medicineDetails.batchNumber || `LEGACY-${item.medicineId}`;
+          const expiryDate = item.expiryDate ?? medicineDetails.expiryDate;
+          const batch = await tx.medicineBatch.upsert({
+            where: { pharmacyId_medicineId_batchNumber: { pharmacyId, medicineId: item.medicineId, batchNumber } },
+            create: {
+              pharmacyId,
+              medicineId: item.medicineId,
+              batchNumber,
+              expiryDate,
+              quantity: item.quantity,
+              costPrice: item.unitPrice,
+              currency: item.currency,
+            },
+            update: { quantity: { increment: item.quantity }, costPrice: item.unitPrice, currency: item.currency },
+          });
+          if (batch.expiryDate?.toISOString().slice(0, 10) !== expiryDate?.toISOString().slice(0, 10)) {
+            throw new BadRequestException(`Le numéro de lot ${batchNumber} existe déjà avec une autre date de péremption.`);
+          }
+          await tx.purchaseItem.update({ where: { id: item.id }, data: { medicineBatchId: batch.id } });
 
           await tx.medicine.update({
             where: { id: item.medicineId },
@@ -324,6 +370,7 @@ export class PurchasesService {
               movementType: 'PURCHASE',
               referenceId: purchase.id,
               referenceType: 'purchase',
+              medicineBatchId: batch.id,
               notes: `Réception de la commande ${purchase.invoiceNumber}`,
             },
           });
@@ -331,8 +378,12 @@ export class PurchasesService {
 
         return updatedPurchase;
       });
+      await this.notifications.notifyPurchaseReceived(pharmacyId, purchase);
+      await this.notifications.notifyLowStockForMedicines(pharmacyId, purchase.purchaseItems.map((item) => item.medicineId));
+      return updatedPurchase;
     } catch (error: any) {
       this.logger.error(`Failed to receive purchase: ${error.message}`);
+      if (error instanceof ConflictException || error instanceof BadRequestException || error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException('Erreur lors de la réception de la commande');
     }
   }

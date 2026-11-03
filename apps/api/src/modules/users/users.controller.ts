@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -33,14 +34,25 @@ import { Tenant } from '../auth/tenant.decorator';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  private getActor(req: any) {
+    return {
+      id: req.user?.id ?? req.user?.sub,
+      role: req.user?.role,
+    };
+  }
+
   @Post()
   @RequirePermissions('user:create')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Créer un nouvel utilisateur' })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
   @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(
+    @Body() createUserDto: CreateUserDto,
+    @Request() req: any,
+    @Tenant() pharmacyId: string,
+  ) {
+    return this.usersService.create(createUserDto, pharmacyId, req.user.role);
   }
 
   @Get()
@@ -71,8 +83,9 @@ export class UsersController {
     @Param('id') id: string,
     @Tenant() pharmacyId: string,
     @Body() updateUserDto: UpdateUserDto,
+    @Request() req: any,
   ) {
-    return this.usersService.update(id, pharmacyId, updateUserDto);
+    return this.usersService.update(id, pharmacyId, updateUserDto, this.getActor(req));
   }
 
   @Delete(':id')
@@ -81,7 +94,11 @@ export class UsersController {
   @ApiOperation({ summary: 'Supprimer un utilisateur' })
   @ApiResponse({ status: 200, description: 'Utilisateur supprimé' })
   @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
-  async remove(@Param('id') id: string, @Tenant() pharmacyId: string) {
-    return this.usersService.remove(id, pharmacyId);
+  async remove(
+    @Param('id') id: string,
+    @Tenant() pharmacyId: string,
+    @Request() req: any,
+  ) {
+    return this.usersService.remove(id, pharmacyId, this.getActor(req));
   }
 }

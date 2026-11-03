@@ -23,6 +23,7 @@ export interface Purchase {
   supplierId?: string;
   supplierName: string;
   supplierPhone?: string;
+  supplierInvoiceNumber?: string;
   totalAmount: number;
   tax: number;
   netAmount: number;

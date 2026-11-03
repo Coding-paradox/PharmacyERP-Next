@@ -39,8 +39,12 @@ export class PurchasesController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Créer une commande d\'achat' })
   @ApiResponse({ status: 201, description: 'Commande créée avec succès' })
-  async create(@Body() createPurchaseDto: CreatePurchaseDto, @Request() req: any) {
-    return this.purchasesService.create(createPurchaseDto, req.user.id);
+  async create(
+    @Body() createPurchaseDto: CreatePurchaseDto,
+    @Request() req: any,
+    @Tenant() pharmacyId: string,
+  ) {
+    return this.purchasesService.create(createPurchaseDto, req.user.id, pharmacyId);
   }
 
   @Get()

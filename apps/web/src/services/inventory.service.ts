@@ -20,6 +20,36 @@ class InventoryService {
     const response = await api.get('/inventory/alerts');
     return response.data;
   }
+
+  async getExpiryAlerts(days = 90) {
+    const response = await api.get('/inventory/expiry-alerts', { params: { days } });
+    return response.data;
+  }
+
+  async listStocktakes() {
+    const response = await api.get('/inventory/stocktakes');
+    return response.data;
+  }
+
+  async createStocktake() {
+    const response = await api.post('/inventory/stocktakes');
+    return response.data;
+  }
+
+  async getStocktake(id: string) {
+    const response = await api.get(`/inventory/stocktakes/${id}`);
+    return response.data;
+  }
+
+  async completeStocktake(id: string, items: { itemId: string; countedQuantity: number; batchNumber?: string; expiryDate?: string }[]) {
+    const response = await api.post(`/inventory/stocktakes/${id}/complete`, { items });
+    return response.data;
+  }
+
+  async cancelStocktake(id: string) {
+    const response = await api.post(`/inventory/stocktakes/${id}/cancel`);
+    return response.data;
+  }
 }
 
 export const inventoryService = new InventoryService();

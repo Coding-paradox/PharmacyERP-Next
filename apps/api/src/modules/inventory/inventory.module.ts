@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { InventoryController } from './inventory.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PrismaModule } from '@pharmacy/database';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationsModule],
   controllers: [InventoryController],
   providers: [InventoryService],
   exports: [InventoryService],

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, Truck, Mail, Phone, MapPin } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Truck, Mail, Phone, MapPin, Upload } from 'lucide-react';
 import { suppliersService } from '../../services/suppliers.service';
+import { ContactImportDialog } from '../../components/imports/ContactImportDialog';
 
 export function SuppliersList() {
   const [search, setSearch] = useState('');
+  const [showImport, setShowImport] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers, isLoading, error } = useQuery({
@@ -51,15 +53,9 @@ export function SuppliersList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Fournisseurs</h1>
-        <Link
-          to="/suppliers/new"
-          className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
-        >
-          <Plus className="h-4 w-4" />
-          Nouveau fournisseur
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="text-2xl font-bold text-gray-900">Fournisseurs</h1><p className="mt-1 text-sm text-gray-500">Répertoire des fournisseurs et coordonnées de contact.</p></div>
+        <div className="flex flex-wrap gap-2"><button onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-xl border border-teal-200 bg-white px-4 py-2.5 text-sm font-semibold text-teal-800 shadow-sm hover:bg-teal-50"><Upload className="h-4 w-4" />Importer un fichier</button><Link to="/suppliers/new" className="inline-flex items-center gap-2 rounded-xl bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-900"><Plus className="h-4 w-4" />Nouveau fournisseur</Link></div>
       </div>
 
       <div className="mt-4 flex items-center gap-4">
@@ -101,68 +97,72 @@ export function SuppliersList() {
                 </td>
               </tr>
             ) : (
-              suppliers?.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-teal-600" />
-                      {s.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    <div className="flex flex-col gap-1">
-                      {s.email && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Mail className="h-3 w-3 text-gray-400" />
-                          {s.email}
-                        </div>
-                      )}
-                      {s.phone && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <Phone className="h-3 w-3 text-gray-400" />
-                          {s.phone}
-                        </div>
-                      )}
-                      {s.address && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <MapPin className="h-3 w-3 text-gray-400" />
-                          {s.address}
-                        </div>
-                      )}
-                      {!s.email && !s.phone && !s.address && '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-600">
-                    {s._count?.purchases || 0}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/suppliers/${s.id}/edit`}
-                        className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(s.id)}
-                        className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
-                        disabled={s._count?.purchases > 0}
-                        title={
-                          s._count?.purchases > 0
-                            ? `Utilisé par ${s._count.purchases} commande(s) d'achat`
-                            : ''
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              suppliers?.map((s) => {
+                const purchasesCount = s._count?.purchases ?? 0;
+                return (
+                  <tr key={s.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-teal-600" />
+                        {s.name}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      <div className="flex flex-col gap-1">
+                        {s.email && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Mail className="h-3 w-3 text-gray-400" />
+                            {s.email}
+                          </div>
+                        )}
+                        {s.phone && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Phone className="h-3 w-3 text-gray-400" />
+                            {s.phone}
+                          </div>
+                        )}
+                        {s.address && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <MapPin className="h-3 w-3 text-gray-400" />
+                            {s.address}
+                          </div>
+                        )}
+                        {!s.email && !s.phone && !s.address && '-'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-600">
+                      {purchasesCount}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/suppliers/${s.id}/edit`}
+                          className="rounded p-1 text-teal-600 hover:bg-teal-50 hover:text-teal-800"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(s.id)}
+                          className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={purchasesCount > 0}
+                          title={
+                            purchasesCount > 0
+                              ? `Utilisé par ${purchasesCount} commande(s) d'achat`
+                              : ''
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
+      {showImport && <ContactImportDialog kind="suppliers" onClose={() => setShowImport(false)} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsUUID,
   IsNumber,
+  IsInt,
   Min,
   IsArray,
   ValidateNested,
@@ -18,7 +19,7 @@ export class CreateSaleItemDto {
   medicineId!: string;
 
   @ApiProperty({ example: 2 })
-  @IsNumber()
+  @IsInt()
   @Min(1)
   quantity!: number;
 
@@ -82,8 +83,4 @@ export class CreateSaleDto {
   @ValidateNested({ each: true })
   @Type(() => CreateSaleItemDto)
   items!: CreateSaleItemDto[];
-
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
-  @IsUUID()
-  pharmacyId!: string;
 }

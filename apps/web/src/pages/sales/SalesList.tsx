@@ -131,7 +131,7 @@ export function SalesList() {
                     {sale.customerName || '-'}
                   </td>
                   <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                    {sale.totalAmount?.toFixed(2) || 0} {sale.currency || 'CDF'}
+                    {Number(sale.totalAmount ?? 0).toFixed(2)} {sale.currency || 'CDF'}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusColors[sale.status] || 'bg-gray-100 text-gray-800'}`}>

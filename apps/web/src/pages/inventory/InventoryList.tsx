@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, AlertTriangle, Package, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, AlertTriangle, Package, TrendingUp } from 'lucide-react';
 import { inventoryService } from '../../services/inventory.service';
+import { InventoryOperations } from './InventoryOperations';
 
 export function InventoryList() {
   const [search, setSearch] = useState('');
@@ -13,8 +14,8 @@ export function InventoryList() {
   });
 
   const { data: movements } = useQuery({
-    queryKey: ['inventory-movements', search],
-    queryFn: () => inventoryService.getMovements(search ? { medicineId: search } : {}),
+    queryKey: ['inventory-movements'],
+    queryFn: () => inventoryService.getMovements(),
   });
 
   if (isLoading) {
@@ -60,6 +61,14 @@ export function InventoryList() {
     EXPIRED: 'text-gray-600',
   };
 
+  const visibleMedicines = summary?.medicines?.filter((medicine: any) => {
+    const matchesSearch = `${medicine.name} ${medicine.code}`.toLocaleLowerCase('fr').includes(search.toLocaleLowerCase('fr'));
+    const matchesFilter = filter === 'low' ? medicine.stock > 0 && medicine.stock <= medicine.minStock
+      : filter === 'out' ? medicine.stock === 0
+        : filter === 'normal' ? medicine.stock > medicine.minStock : true;
+    return matchesSearch && matchesFilter;
+  }) ?? [];
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900">Gestion du stock</h1>
@@ -95,6 +104,8 @@ export function InventoryList() {
           <p className="mt-2 text-3xl font-bold text-gray-900">{movements?.total || 0}</p>
         </div>
       </div>
+
+      <InventoryOperations />
 
       {/* Liste des médicaments avec stock */}
       <div className="mt-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
@@ -134,24 +145,14 @@ export function InventoryList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white">
-            {summary?.medicines?.filter((m: any) => {
-              if (filter === 'low') return m.stock > 0 && m.stock <= m.minStock;
-              if (filter === 'out') return m.stock === 0;
-              if (filter === 'normal') return m.stock > m.minStock;
-              return true;
-            }).length === 0 ? (
+            {visibleMedicines.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
                   Aucun médicament trouvé
                 </td>
               </tr>
             ) : (
-              summary?.medicines?.filter((m: any) => {
-                if (filter === 'low') return m.stock > 0 && m.stock <= m.minStock;
-                if (filter === 'out') return m.stock === 0;
-                if (filter === 'normal') return m.stock > m.minStock;
-                return true;
-              }).map((medicine: any) => {
+              visibleMedicines.map((medicine: any) => {
                 const status = medicine.stock === 0 ? 'Rupture' :
                               medicine.stock <= medicine.minStock ? 'Stock faible' : 'Normal';
                 const statusColor = medicine.stock === 0 ? 'text-red-600' :

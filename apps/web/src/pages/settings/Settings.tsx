@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { settingsService } from '../../services/settings.service';
-import { Building2, Users, Pill, ShoppingCart, Package, Truck, RefreshCw } from 'lucide-react';
+import { Building2, Users, Pill, ShoppingCart, Package, Truck } from 'lucide-react';
 
 const pharmacySchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
@@ -58,7 +58,7 @@ export function Settings() {
 
   const updateMutation = useMutation({
     mutationFn: settingsService.updatePharmacySettings,
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pharmacy-settings'] });
       setIsEditing(false);
       setSuccessMessage('Paramètres mis à jour avec succès');
@@ -82,18 +82,21 @@ export function Settings() {
   }
 
   const stats = [
-    { icon: Users, label: 'Utilisateurs', value: systemInfo?.users || 0, color: 'bg-blue-500' },
-    { icon: Pill, label: 'Médicaments', value: systemInfo?.medicines || 0, color: 'bg-green-500' },
-    { icon: ShoppingCart, label: 'Ventes', value: systemInfo?.sales || 0, color: 'bg-purple-500' },
-    { icon: Package, label: 'Achats', value: systemInfo?.purchases || 0, color: 'bg-orange-500' },
-    { icon: Users, label: 'Clients', value: systemInfo?.customers || 0, color: 'bg-teal-500' },
-    { icon: Truck, label: 'Fournisseurs', value: systemInfo?.suppliers || 0, color: 'bg-indigo-500' },
+    { icon: Users, label: 'Utilisateurs', value: systemInfo?.users || 0 },
+    { icon: Pill, label: 'Médicaments', value: systemInfo?.medicines || 0 },
+    { icon: ShoppingCart, label: 'Ventes', value: systemInfo?.sales || 0 },
+    { icon: Package, label: 'Achats', value: systemInfo?.purchases || 0 },
+    { icon: Users, label: 'Clients', value: systemInfo?.customers || 0 },
+    { icon: Truck, label: 'Fournisseurs', value: systemInfo?.suppliers || 0 },
   ];
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Paramètres</h1>
+          <p className="mt-1 text-sm text-gray-500">Informations générales et paramètres de la pharmacie.</p>
+        </div>
         {!isEditing && (
           <button
             onClick={() => setIsEditing(true)}
@@ -111,10 +114,10 @@ export function Settings() {
       )}
 
       {/* Statistiques */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 sm:gap-4">
         {stats.map((stat, index) => (
-          <div key={index} className="flex items-center gap-4 rounded-lg bg-white p-4 shadow">
-            <div className={`rounded-full p-3 ${stat.color} text-white`}>
+          <div key={index} className="flex items-center gap-4 rounded-2xl border border-teal-900/5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="rounded-xl bg-teal-50 p-3 text-teal-800">
               <stat.icon className="h-5 w-5" />
             </div>
             <div>
@@ -126,7 +129,7 @@ export function Settings() {
       </div>
 
       {/* Formulaire Pharmacie */}
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow">
+      <div className="mt-6 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex items-center gap-2 border-b pb-4">
           <Building2 className="h-5 w-5 text-teal-700" />
           <h2 className="text-lg font-semibold text-gray-900">Informations de la pharmacie</h2>

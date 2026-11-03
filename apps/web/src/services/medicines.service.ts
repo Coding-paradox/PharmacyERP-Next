@@ -26,6 +26,7 @@ export interface Medicine {
   pharmacyId: string;
   createdAt: string;
   updatedAt: string;
+  batches?: { id: string; batchNumber: string; expiryDate?: string | null; quantity: number; costPrice: number; currency: Currency }[];
 }
 
 export interface MedicinesQueryParams {

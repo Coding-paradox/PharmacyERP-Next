@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/AuthContext';
 import { PrivateRoute } from './routes/PrivateRoute';
 import { Login } from './pages/auth/Login';
 import { Setup } from './pages/auth/Setup';
@@ -33,17 +35,27 @@ import { Settings } from './pages/settings/Settings';
 import { Layout } from './components/layout/Layout';
 import { GenericNamesList } from './pages/references/GenericNamesList';
 import { GenericNameForm } from './pages/references/GenericNameForm';
+import { Welcome } from './pages/auth/Welcome';
+import { StartupScreen } from './components/StartupScreen';
 
-function App() {
+function AppRoutes() {
+  const { isLoading } = useAuth();
+  const [splashElapsed, setSplashElapsed] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSplashElapsed(true), 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (isLoading || !splashElapsed) return <StartupScreen message="Ouverture de MULANGO Healthcare…" />;
+
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+    <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Welcome />} />
 
           <Route
             path="/dashboard"
@@ -410,7 +422,15 @@ function App() {
           />
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
   );
